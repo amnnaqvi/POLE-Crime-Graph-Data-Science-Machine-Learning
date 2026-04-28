@@ -1,0 +1,25 @@
+# Local Neo4j connection details
+.neo4j.local.ps1
+
+# Dataset dumps
+data/*.dump
+!data/pole-50.dump
+data/*.backup
+
+# LaTeX build output
+graph-ml/presentation.tex
+graph-ml/presentation.pdf
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+*.synctex.gz
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
