@@ -1,4 +1,4 @@
-# Graph Data Science on the POLE Crime Network
+# Graph Data Science and Graph Machine Learning on the POLE Crime Network
 
 This project uses the Neo4j POLE Crime Investigation dataset to explore graph statistics, graph analytics, and graph machine learning on a connected crime investigation network.
 
