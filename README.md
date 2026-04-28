@@ -1,6 +1,6 @@
 # Graph Data Science on the POLE Crime Network
 
-This project uses the Neo4j POLE Crime Investigation dataset to explore graph statistics, graph analytics, and graph machine learning on a connected crime investigation network. It was built for a CS343 Graph Data Science course project and cleaned up so the scripts and results can also stand on their own as a GitHub repository.
+This project uses the Neo4j POLE Crime Investigation dataset to explore graph statistics, graph analytics, and graph machine learning on a connected crime investigation network.
 
 The original dataset is from the Neo4j graph examples repository:
 
@@ -49,8 +49,6 @@ The main lesson from the project is that the graph has useful signals for hotspo
 |-- .neo4j.local.example.ps1
 `-- README.md
 ```
-
-The final course presentation source/PDF are kept local and ignored by Git. The public repository focuses on the reproducible Cypher scripts, saved outputs, dataset notes, and runner.
 
 ## Neo4j Setup
 
@@ -109,7 +107,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run-neo4j-report.ps1 `
   -OutputFile .\graph-ml\results.cypher
 ```
 
-The runner executes each Cypher statement and writes the result below the query. This keeps the scripts and outputs easy to inspect for the demo.
+The runner executes each Cypher statement and writes the result below the query. This keeps the scripts and outputs easy to inspect and reproduce.
 
 ## Main Results
 
@@ -124,9 +122,9 @@ The runner executes each Cypher statement and writes the result below the query.
 
 These results are meant to support investigative review and graph-analysis discussion, not automated decisions about individuals.
 
-## Final Demo Angle
+## Interpretation
 
-The final demo focuses on POLE investigative analytics:
+The final interpretation focuses on POLE investigative analytics:
 
 1. Graph model and database scale.
 2. Link viability audit showing why `PARTY_TO` is not the main target.
@@ -137,7 +135,3 @@ The final demo focuses on POLE investigative analytics:
 7. Explainable Common Neighbours and Adamic Adar social-link candidates.
 
 The project does not claim that the model can identify who committed a crime. The stronger result is a graph workflow for connected investigation context, with clear limits on what should and should not be predicted.
-
-## Course Submission Notes
-
-For the course demo, the local presentation follows the required structure: graph model, graph statistics, graph analytics, graph machine learning pipeline, results, limitations, and final interpretation. Generative AI was used as an assistant for debugging, wording, and result review; the modelling choices, final interpretation, and demo claims remain the team's responsibility.

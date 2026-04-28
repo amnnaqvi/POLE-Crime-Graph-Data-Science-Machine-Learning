@@ -1,6 +1,6 @@
 # Graph Stats and Analytics
 
-`queries.cypher` is the graph stats and analytics script. It validates the schema, audits relationship quality, and extracts the results used to decide the graph ML pipeline. It is written as a course-demo script: each section has comments, and the saved output can be read alongside the query that produced it.
+`queries.cypher` is the graph stats and analytics script. It validates the schema, audits relationship quality, and extracts the results used to decide the graph ML pipeline. Each section has comments, and the saved output can be read alongside the query that produced it.
 
 Main sections:
 
