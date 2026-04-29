@@ -7,26 +7,45 @@
 RETURN gds.version() AS gdsVersion;
 
 // Query 0.2 - Clear old prediction relationships from previous runs.
-MATCH ()-[r:PREDICTED_KNOWS_REVIEW]->()
+MATCH ()-[r:PREDICTED_SOCIAL_REVIEW]->()
 DELETE r;
 
-MATCH ()-[r:PREDICTED_KNOWS_EXPLAINABLE]->()
+MATCH ()-[r:PREDICTED_SOCIAL_EXPLAINABLE]->()
+DELETE r;
+
+MATCH ()-[r:OBSERVED_SOCIAL_LINK_TMP]->()
 DELETE r;
 
 // Query 0.3 - Drop old in-memory GDS items from previous runs.
-CALL gds.model.drop('revised-knows-lp-model', false)
+CALL gds.model.drop('social-family-lp-model', false)
 YIELD modelName
 RETURN modelName AS droppedModel;
 
-CALL gds.pipeline.drop('revised-knows-lp-pipeline', false)
+CALL gds.pipeline.drop('social-family-lp-pipeline', false)
 YIELD pipelineName
 RETURN pipelineName AS droppedPipeline;
 
-CALL gds.graph.drop('revisedKnowsContextGraph', false)
+CALL gds.graph.drop('socialFamilyContextGraph', false)
 YIELD graphName
 RETURN graphName AS droppedGraph;
 
 CALL gds.graph.drop('revisedSocialGraph', false)
+YIELD graphName
+RETURN graphName AS droppedGraph;
+
+CALL gds.model.drop('crime-class-model', false)
+YIELD modelName
+RETURN modelName AS droppedModel;
+
+CALL gds.pipeline.drop('crime-class-pipeline', false)
+YIELD pipelineName
+RETURN pipelineName AS droppedPipeline;
+
+CALL gds.graph.drop('crimeClassGraph', false)
+YIELD graphName
+RETURN graphName AS droppedGraph;
+
+CALL gds.graph.drop('socialEmbeddingGraph', false)
 YIELD graphName
 RETURN graphName AS droppedGraph;
 
@@ -288,6 +307,7 @@ ORDER BY linkedCrimes DESC;
 
 // Query 3.1 - Social relationship mix.
 MATCH (:Person)-[r]->(:Person)
+WHERE type(r) IN ['KNOWS', 'KNOWS_SN', 'KNOWS_PHONE', 'KNOWS_LW', 'FAMILY_REL']
 RETURN type(r) AS relationshipType,
        count(r) AS directedLinks,
        count(DISTINCT startNode(r)) AS distinctSources,
@@ -370,29 +390,30 @@ RETURN communityId,
 ORDER BY totalObservedPartyToLinks DESC, crimeLinkedPeoplePercent DESC
 LIMIT 15;
 
-// SECTION 4: MAIN GML PIPELINE - PERSON-PERSON KNOWS
+// SECTION 4: MAIN GML PIPELINE - PERSON-PERSON SOCIAL-FAMILY LINK PREDICTION
 
-// Query 4.1 - KNOWS target size and imbalance.
+// Query 4.1 - Materialize a temporary unified social-family target.
+MATCH (p:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(q:Person)
+WHERE elementId(p) < elementId(q)
+MERGE (p)-[:OBSERVED_SOCIAL_LINK_TMP]->(q);
+
+// Query 4.2 - Unified social target size and imbalance.
 MATCH (p:Person)
 WITH count(p) AS people
-MATCH (:Person)-[:KNOWS]->(:Person)
-WITH people, count(*) AS knowsLinks
+MATCH (:Person)-[:OBSERVED_SOCIAL_LINK_TMP]->(:Person)
+WITH people, count(*) AS socialLinks
 RETURN people,
-       knowsLinks,
+       socialLinks,
        people * (people - 1) AS possibleDirectedPersonPairs,
-       round(1000000.0 * knowsLinks / (people * (people - 1))) / 10000.0 AS positiveClassPercent,
-       'KNOWS is still sparse, but it has far more labels than PARTY_TO and is safer to interpret.' AS targetReading;
+       round(1000000.0 * socialLinks / (people * (people - 1))) / 10000.0 AS positiveClassPercent,
+       'Unified social-family target combines KNOWS, phone, social-network, living-with, and family evidence for review-only association prediction.' AS targetReading;
 
-// Query 4.2 - Project a context graph for KNOWS link prediction.
+// Query 4.3 - Project a context graph for social-family link prediction.
 CALL gds.graph.project(
-  'revisedKnowsContextGraph',
+  'socialFamilyContextGraph',
   ['Person', 'Phone', 'Email', 'Location', 'Crime'],
   {
-    KNOWS: {orientation: 'UNDIRECTED'},
-    KNOWS_SN: {orientation: 'UNDIRECTED'},
-    KNOWS_PHONE: {orientation: 'UNDIRECTED'},
-    KNOWS_LW: {orientation: 'UNDIRECTED'},
-    FAMILY_REL: {orientation: 'UNDIRECTED'},
+    OBSERVED_SOCIAL_LINK_TMP: {orientation: 'UNDIRECTED'},
     HAS_PHONE: {orientation: 'UNDIRECTED'},
     HAS_EMAIL: {orientation: 'UNDIRECTED'},
     CURRENT_ADDRESS: {orientation: 'UNDIRECTED'},
@@ -406,18 +427,18 @@ RETURN graphName,
        relationshipCount,
        projectMillis;
 
-// Query 4.3 - Create link-prediction pipeline.
-CALL gds.beta.pipeline.linkPrediction.create('revised-knows-lp-pipeline')
+// Query 4.4 - Create link-prediction pipeline.
+CALL gds.beta.pipeline.linkPrediction.create('social-family-lp-pipeline')
 YIELD name
 RETURN name AS pipeline;
 
-// Query 4.4 - Add FastRP embeddings.
+// Query 4.5 - Add FastRP embeddings.
 CALL gds.beta.pipeline.linkPrediction.addNodeProperty(
-  'revised-knows-lp-pipeline',
+  'social-family-lp-pipeline',
   'fastRP',
   {
-    mutateProperty: 'embedding',
-    embeddingDimension: 64,
+    mutateProperty: 'fastRpEmbedding',
+    embeddingDimension: 128,
     iterationWeights: [0.0, 1.0, 1.0, 1.0],
     randomSeed: 42
   }
@@ -425,18 +446,42 @@ CALL gds.beta.pipeline.linkPrediction.addNodeProperty(
 YIELD nodePropertySteps
 RETURN nodePropertySteps;
 
-// Query 4.5 - Add pairwise embedding feature.
+// Query 4.6 - Add Node2Vec embeddings.
+CALL gds.beta.pipeline.linkPrediction.addNodeProperty(
+  'social-family-lp-pipeline',
+  'node2vec',
+  {
+    mutateProperty: 'node2vecEmbedding',
+    embeddingDimension: 64,
+    walkLength: 20,
+    walksPerNode: 10,
+    randomSeed: 42
+  }
+)
+YIELD nodePropertySteps
+RETURN nodePropertySteps;
+
+// Query 4.7 - Add pairwise FastRP feature.
 CALL gds.beta.pipeline.linkPrediction.addFeature(
-  'revised-knows-lp-pipeline',
+  'social-family-lp-pipeline',
   'hadamard',
-  {nodeProperties: ['embedding']}
+  {nodeProperties: ['fastRpEmbedding']}
 )
 YIELD featureSteps
 RETURN featureSteps;
 
-// Query 4.6 - Configure train/test split.
+// Query 4.8 - Add pairwise Node2Vec feature.
+CALL gds.beta.pipeline.linkPrediction.addFeature(
+  'social-family-lp-pipeline',
+  'hadamard',
+  {nodeProperties: ['node2vecEmbedding']}
+)
+YIELD featureSteps
+RETURN featureSteps;
+
+// Query 4.9 - Configure train/test split.
 CALL gds.beta.pipeline.linkPrediction.configureSplit(
-  'revised-knows-lp-pipeline',
+  'social-family-lp-pipeline',
   {
     testFraction: 0.20,
     trainFraction: 0.60,
@@ -447,27 +492,36 @@ CALL gds.beta.pipeline.linkPrediction.configureSplit(
 YIELD splitConfig
 RETURN splitConfig;
 
-// Query 4.7 - Logistic regression model candidate.
-CALL gds.beta.pipeline.linkPrediction.addLogisticRegression(
-  'revised-knows-lp-pipeline',
+// Query 4.10 - Model-selection note from the experiment sweep.
+RETURN 'Logistic Regression was tested during the experiment sweep. It can score higher AUCPR, but its live probabilities are nearly flat. The final deployable review pipeline keeps Random Forest because it gives usable probability separation for human-review ranking.' AS modelSelectionNote;
+
+// Query 4.11 - Random Forest model candidate.
+CALL gds.beta.pipeline.linkPrediction.addRandomForest(
+  'social-family-lp-pipeline',
   {
-    penalty: 0.0,
-    maxEpochs: 100,
-    learningRate: 0.001
+    numberOfSamplesRatio: 1.0,
+    numberOfDecisionTrees: 200,
+    maxFeaturesRatio: 1.0
   }
 )
 YIELD parameterSpace
 RETURN parameterSpace;
 
-// Query 4.8 - Train KNOWS link-prediction model.
+// Query 4.12 - Confirm candidate model families before training.
+CALL gds.pipeline.list('social-family-lp-pipeline')
+YIELD pipelineInfo
+RETURN pipelineInfo.trainingParameterSpace AS candidateModelFamilies,
+       'GDS will compare candidate model families using validation AUCPR and keep the best trained model.' AS modelSelectionReading;
+
+// Query 4.13 - Train social-family link-prediction model.
 CALL gds.beta.pipeline.linkPrediction.train(
-  'revisedKnowsContextGraph',
+  'socialFamilyContextGraph',
   {
-    pipeline: 'revised-knows-lp-pipeline',
-    modelName: 'revised-knows-lp-model',
+    pipeline: 'social-family-lp-pipeline',
+    modelName: 'social-family-lp-model',
     sourceNodeLabel: 'Person',
     targetNodeLabel: 'Person',
-    targetRelationshipType: 'KNOWS',
+    targetRelationshipType: 'OBSERVED_SOCIAL_LINK_TMP',
     metrics: ['AUCPR'],
     randomSeed: 42
   }
@@ -477,6 +531,7 @@ RETURN trainMillis,
        modelInfo.metrics.AUCPR.train.avg AS trainAUCPR,
        modelInfo.metrics.AUCPR.validation.avg AS validationAUCPR,
        modelInfo.metrics.AUCPR.test AS testAUCPR,
+       modelInfo.bestParameters.methodName AS selectedModel,
        modelInfo.bestParameters AS bestParameters,
        CASE
          WHEN modelInfo.metrics.AUCPR.test >= 0.70 THEN 'Strong enough for social-link review ranking.'
@@ -484,7 +539,7 @@ RETURN trainMillis,
          ELSE 'Not reliable enough even for social-link ranking.'
        END AS modelReading;
 
-// Query 4.9 - Explainable link prediction baseline: Common Neighbours.
+// Query 4.11 - Explainable link prediction baseline: Common Neighbours.
 MATCH (p1:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(shared:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2:Person)
 WHERE elementId(p1) < elementId(p2)
   AND NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
@@ -501,7 +556,7 @@ RETURN p1.name + ' ' + coalesce(p1.surname, '') AS personA,
 ORDER BY commonNeighbours DESC, personA, personB
 LIMIT 25;
 
-// Query 4.10 - Explainable link prediction baseline: Adamic Adar style score.
+// Query 4.12 - Explainable link prediction baseline: Adamic Adar style score.
 MATCH (p1:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(shared:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2:Person)
 WHERE elementId(p1) < elementId(p2)
   AND NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
@@ -526,7 +581,7 @@ RETURN p1.name + ' ' + coalesce(p1.surname, '') AS personA,
 ORDER BY adamicAdarScore DESC, commonNeighbours DESC
 LIMIT 25;
 
-// Query 4.11 - Write conservative explainable social candidates.
+// Query 4.13 - Write conservative explainable social candidates.
 CALL {
   MATCH (p1:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(shared:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2:Person)
   WHERE elementId(p1) < elementId(p2)
@@ -548,7 +603,7 @@ CALL {
   ORDER BY adamicAdarScore DESC, commonNeighbours DESC
   LIMIT 25
 }
-MERGE (p1)-[r:PREDICTED_KNOWS_EXPLAINABLE]->(p2)
+MERGE (p1)-[r:PREDICTED_SOCIAL_EXPLAINABLE]->(p2)
 SET r.commonNeighbours = commonNeighbours,
     r.adamicAdarScore = adamicAdarScore,
     r.explanation = explanation,
@@ -556,13 +611,19 @@ SET r.commonNeighbours = commonNeighbours,
 RETURN count(r) AS writtenExplainableReviewLinks,
        'Explainable candidates were written because they have clear shared-neighbour evidence.' AS writeBackReading;
 
-// Query 4.12 - Calibration check for supervised predicted social links.
+// Query 4.14 - Calibration check for supervised predicted social links.
+CALL gds.model.list('social-family-lp-model')
+YIELD modelInfo
+WITH modelInfo.metrics.AUCPR.test AS testAUCPR,
+     modelInfo.bestParameters.methodName AS selectedModel
 CALL gds.beta.pipeline.linkPrediction.predict.stream(
-  'revisedKnowsContextGraph',
-  {modelName: 'revised-knows-lp-model', topN: 200}
+  'socialFamilyContextGraph',
+  {modelName: 'social-family-lp-model', topN: 200}
 )
 YIELD node1, node2, probability
-WITH gds.util.asNode(node1) AS p1,
+WITH testAUCPR,
+     selectedModel,
+     gds.util.asNode(node1) AS p1,
      gds.util.asNode(node2) AS p2,
      probability
 WHERE p1:Person
@@ -570,24 +631,29 @@ WHERE p1:Person
   AND elementId(p1) < elementId(p2)
   AND NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
 WITH count(*) AS candidateLinks,
+     testAUCPR,
+     selectedModel,
      min(probability) AS lowestProbability,
      max(probability) AS highestProbability,
      avg(probability) AS averageProbability
 RETURN candidateLinks,
+       selectedModel,
+       testAUCPR,
        lowestProbability,
        highestProbability,
        averageProbability,
        highestProbability - lowestProbability AS probabilityBand,
        CASE
          WHEN candidateLinks = 0 THEN 'No unseen Person-Person candidates returned.'
+         WHEN testAUCPR < 0.50 THEN 'Do not write back. Held-out test AUCPR is too weak.'
          WHEN highestProbability - lowestProbability < 0.01 THEN 'Do not write back. Scores are too flat.'
          ELSE 'Scores have separation. Candidate social links can be reviewed.'
        END AS deploymentDecision;
 
-// Query 4.13 - Top supervised candidate social links for comparison.
+// Query 4.15 - Top supervised candidate social links for comparison.
 CALL gds.beta.pipeline.linkPrediction.predict.stream(
-  'revisedKnowsContextGraph',
-  {modelName: 'revised-knows-lp-model', topN: 50}
+  'socialFamilyContextGraph',
+  {modelName: 'social-family-lp-model', topN: 50}
 )
 YIELD node1, node2, probability
 WITH gds.util.asNode(node1) AS p1,
@@ -610,14 +676,18 @@ RETURN p1.name + ' ' + coalesce(p1.surname, '') AS personA,
 ORDER BY probability DESC
 LIMIT 25;
 
-// Query 4.14 - Conservative write-back of supervised review-only social candidates.
+// Query 4.16 - Conservative write-back of supervised review-only social candidates.
 CALL {
+  CALL gds.model.list('social-family-lp-model')
+  YIELD modelInfo
+  WITH modelInfo.metrics.AUCPR.test AS testAUCPR
   CALL gds.beta.pipeline.linkPrediction.predict.stream(
-    'revisedKnowsContextGraph',
-    {modelName: 'revised-knows-lp-model', topN: 200}
+    'socialFamilyContextGraph',
+    {modelName: 'social-family-lp-model', topN: 200}
   )
   YIELD node1, node2, probability
-  WITH gds.util.asNode(node1) AS p1,
+  WITH testAUCPR,
+       gds.util.asNode(node1) AS p1,
        gds.util.asNode(node2) AS p2,
        probability
   WHERE p1:Person
@@ -625,13 +695,16 @@ CALL {
     AND elementId(p1) < elementId(p2)
     AND NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
   RETURN collect({p1: p1, p2: p2, probability: probability}) AS candidates,
+         testAUCPR,
          min(probability) AS lowestProbability,
          max(probability) AS highestProbability
 }
 WITH candidates, lowestProbability, highestProbability,
-     highestProbability - lowestProbability AS probabilityBand
+     highestProbability - lowestProbability AS probabilityBand,
+     testAUCPR
 WITH [candidate IN candidates
-      WHERE probabilityBand >= 0.01
+      WHERE testAUCPR >= 0.50
+        AND probabilityBand >= 0.01
         AND candidate.probability >= 0.55][0..25] AS writeCandidates
 CALL {
   WITH writeCandidates
@@ -639,32 +712,218 @@ CALL {
   WITH candidate.p1 AS p1,
        candidate.p2 AS p2,
        candidate.probability AS probability
-  MERGE (p1)-[r:PREDICTED_KNOWS_REVIEW]->(p2)
+  MERGE (p1)-[r:PREDICTED_SOCIAL_REVIEW]->(p2)
   SET r.probability = probability,
-      r.model = 'revised-knows-lp-model',
+      r.model = 'social-family-lp-model',
       r.note = 'Review-only predicted social/context link. Not evidence of crime.'
   RETURN count(r) AS writtenReviewLinks
 }
 RETURN writtenReviewLinks,
-       'Review-only PREDICTED_KNOWS_REVIEW relationships written only when scores were not flat.' AS writeBackReading;
+       'Review-only PREDICTED_SOCIAL_REVIEW relationships are written only when held-out AUCPR and probability spread both pass the gate.' AS writeBackReading;
 
-// Query 4.15 - GML decision table for the final demo.
-MATCH ()-[explainable:PREDICTED_KNOWS_EXPLAINABLE]->()
+// Query 4.17 - Remove temporary stored target after the in-memory model is trained.
+MATCH ()-[r:OBSERVED_SOCIAL_LINK_TMP]->()
+DELETE r;
+
+// Query 4.18 - GML decision table for the final demo.
+MATCH ()-[explainable:PREDICTED_SOCIAL_EXPLAINABLE]->()
 WITH count(explainable) AS explainableReviewLinks
-OPTIONAL MATCH ()-[supervised:PREDICTED_KNOWS_REVIEW]->()
+OPTIONAL MATCH ()-[supervised:PREDICTED_SOCIAL_REVIEW]->()
 RETURN explainableReviewLinks,
        count(supervised) AS supervisedReviewLinks,
        CASE
          WHEN explainableReviewLinks > 0 AND count(supervised) = 0
-         THEN 'Use explainable Common Neighbours and Adamic Adar candidates in the demo. Supervised write-back remains blocked because calibration is flat.'
+         THEN 'Use explainable Common Neighbours and Adamic Adar candidates in the demo. Supervised write-back remains blocked because held-out quality or calibration is too weak.'
          WHEN count(supervised) > 0
          THEN 'Both explainable and supervised candidates are available for review.'
          ELSE 'No candidate write-back should be shown.'
        END AS gmlDemoDecision;
 
-// SECTION 5: REVIEW PRIORITY WITHOUT AUTOMATED ACCUSATION
+// SECTION 5: SECONDARY ML AND UNSUPERVISED EXPERIMENTS
 
-// Query 5.1 - Review-priority people using observed graph context.
+// Query 5.1 - Project social graph for unsupervised embedding similarity.
+CALL gds.graph.project(
+  'socialEmbeddingGraph',
+  'Person',
+  {
+    KNOWS: {orientation: 'UNDIRECTED'},
+    KNOWS_SN: {orientation: 'UNDIRECTED'},
+    KNOWS_PHONE: {orientation: 'UNDIRECTED'},
+    KNOWS_LW: {orientation: 'UNDIRECTED'},
+    FAMILY_REL: {orientation: 'UNDIRECTED'}
+  }
+)
+YIELD graphName, nodeCount, relationshipCount
+RETURN graphName,
+       nodeCount,
+       relationshipCount,
+       'Used for unsupervised FastRP + kNN candidate discovery.' AS experimentReading;
+
+// Query 5.2 - Create FastRP embeddings for unsupervised social similarity.
+CALL gds.fastRP.mutate(
+  'socialEmbeddingGraph',
+  {
+    mutateProperty: 'embedding',
+    embeddingDimension: 32,
+    iterationWeights: [0.0, 1.0, 1.0],
+    randomSeed: 42
+  }
+)
+YIELD nodePropertiesWritten, mutateMillis
+RETURN nodePropertiesWritten,
+       mutateMillis;
+
+// Query 5.3 - Unsupervised kNN social-similarity candidates.
+CALL gds.knn.stream(
+  'socialEmbeddingGraph',
+  {
+    nodeProperties: ['embedding'],
+    topK: 5,
+    similarityCutoff: 0.7,
+    randomSeed: 42,
+    concurrency: 1
+  }
+)
+YIELD node1, node2, similarity
+WITH gds.util.asNode(node1) AS p1,
+     gds.util.asNode(node2) AS p2,
+     similarity
+WHERE elementId(p1) < elementId(p2)
+  AND NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
+RETURN p1.name + ' ' + coalesce(p1.surname, '') AS personA,
+       p2.name + ' ' + coalesce(p2.surname, '') AS personB,
+       similarity,
+       'Unsupervised embedding candidate: structurally similar social context, review only.' AS reading
+ORDER BY similarity DESC, personA, personB
+LIMIT 25;
+
+// Query 5.4 - Project crime-context graph for node classification.
+CALL gds.graph.project(
+  'crimeClassGraph',
+  {
+    Crime: {properties: ['crimeTypeClass']},
+    Location: {},
+    Officer: {},
+    Vehicle: {},
+    Object: {}
+  },
+  {
+    OCCURRED_AT: {orientation: 'UNDIRECTED'},
+    INVESTIGATED_BY: {orientation: 'UNDIRECTED'},
+    INVOLVED_IN: {orientation: 'UNDIRECTED'}
+  }
+)
+YIELD graphName, nodeCount, relationshipCount
+RETURN graphName,
+       nodeCount,
+       relationshipCount,
+       'Secondary supervised task: predict broad crime type class from graph context.' AS experimentReading;
+
+// Query 5.5 - Crime type class distribution.
+MATCH (c:Crime)
+WHERE c.crimeTypeClass IS NOT NULL
+RETURN c.crimeTypeClass AS crimeTypeClass,
+       c.type AS exampleCrimeType,
+       count(c) AS crimes
+ORDER BY crimes DESC;
+
+// Query 5.6 - Create crime-class node-classification pipeline.
+CALL gds.beta.pipeline.nodeClassification.create('crime-class-pipeline')
+YIELD name
+RETURN name AS pipeline;
+
+// Query 5.7 - Add FastRP embeddings for crime-class classification.
+CALL gds.beta.pipeline.nodeClassification.addNodeProperty(
+  'crime-class-pipeline',
+  'fastRP',
+  {
+    mutateProperty: 'embedding',
+    embeddingDimension: 32,
+    iterationWeights: [0.0, 1.0, 1.0],
+    randomSeed: 42
+  }
+)
+YIELD nodePropertySteps
+RETURN nodePropertySteps;
+
+// Query 5.8 - Select embedding feature.
+CALL gds.beta.pipeline.nodeClassification.selectFeatures(
+  'crime-class-pipeline',
+  ['embedding']
+)
+YIELD featureProperties
+RETURN featureProperties;
+
+// Query 5.9 - Configure crime-class split.
+CALL gds.beta.pipeline.nodeClassification.configureSplit(
+  'crime-class-pipeline',
+  {
+    testFraction: 0.20,
+    validationFolds: 2
+  }
+)
+YIELD splitConfig
+RETURN splitConfig;
+
+// Query 5.10 - Add Logistic Regression for crime-class classification.
+CALL gds.beta.pipeline.nodeClassification.addLogisticRegression(
+  'crime-class-pipeline',
+  {
+    maxEpochs: 30,
+    learningRate: 0.01
+  }
+)
+YIELD parameterSpace
+RETURN parameterSpace;
+
+// Query 5.11 - Train crime-class classifier.
+CALL gds.beta.pipeline.nodeClassification.train(
+  'crimeClassGraph',
+  {
+    pipeline: 'crime-class-pipeline',
+    modelName: 'crime-class-model',
+    targetNodeLabels: ['Crime'],
+    targetProperty: 'crimeTypeClass',
+    metrics: ['F1_WEIGHTED', 'ACCURACY'],
+    randomSeed: 42
+  }
+)
+YIELD modelInfo, trainMillis
+RETURN trainMillis,
+       modelInfo.metrics.F1_WEIGHTED.train.avg AS trainWeightedF1,
+       modelInfo.metrics.F1_WEIGHTED.validation.avg AS validationWeightedF1,
+       modelInfo.metrics.F1_WEIGHTED.test AS testWeightedF1,
+       modelInfo.metrics.ACCURACY.test AS testAccuracy,
+       modelInfo.bestParameters.methodName AS selectedModel,
+       CASE
+         WHEN modelInfo.metrics.F1_WEIGHTED.test >= 0.50 THEN 'Useful crime-type classifier.'
+         ELSE 'Weak classifier: graph structure alone does not recover crime type reliably.'
+       END AS classifierReading;
+
+// Query 5.12 - ML strategy comparison table.
+MATCH ()-[explainable:PREDICTED_SOCIAL_EXPLAINABLE]->()
+WITH count(explainable) AS explainableLinks
+OPTIONAL MATCH ()-[supervised:PREDICTED_SOCIAL_REVIEW]->()
+WITH explainableLinks, count(supervised) AS supervisedLinks
+CALL gds.model.list('social-family-lp-model')
+YIELD modelInfo AS lpModelInfo
+WITH explainableLinks,
+     supervisedLinks,
+     lpModelInfo.metrics.AUCPR.test AS linkPredictionTestAUCPR,
+     lpModelInfo.bestParameters.methodName AS linkPredictionSelectedModel
+CALL gds.model.list('crime-class-model')
+YIELD modelInfo AS crimeModelInfo
+RETURN linkPredictionSelectedModel,
+       linkPredictionTestAUCPR,
+       supervisedLinks AS supervisedSocialWriteBackLinks,
+       explainableLinks AS explainableSocialWriteBackLinks,
+       crimeModelInfo.metrics.F1_WEIGHTED.test AS crimeClassTestWeightedF1,
+       crimeModelInfo.metrics.ACCURACY.test AS crimeClassTestAccuracy,
+       'Final ML stance: use supervised experiments as evidence, use explainable and unsupervised candidates for review, and do not overclaim weak held-out models.' AS strategyReading;
+
+// SECTION 6: REVIEW PRIORITY WITHOUT AUTOMATED ACCUSATION
+
+// Query 6.1 - Review-priority people using observed graph context.
 MATCH (p:Person)
 OPTIONAL MATCH (p)-[:PARTY_TO]-(own:Crime)
 WITH p, count(DISTINCT own) AS ownCrimeLinks
@@ -704,7 +963,7 @@ RETURN p.name + ' ' + coalesce(p.surname, '') AS person,
 ORDER BY reviewScore DESC, person
 LIMIT 25;
 
-// Query 5.2 - Review-priority social communities.
+// Query 6.2 - Review-priority social communities.
 MATCH (p:Person)
 WHERE p.revisedSocialCommunityId IS NOT NULL
 OPTIONAL MATCH (p)-[:PARTY_TO]-(c:Crime)
@@ -738,7 +997,7 @@ RETURN communityId,
 ORDER BY totalObservedPartyToLinks DESC, crimeLinkedPeoplePercent DESC
 LIMIT 15;
 
-// Query 5.3 - Final conclusion.
+// Query 6.3 - Final conclusion.
 MATCH (:Person)-[party:PARTY_TO]->(:Crime)
 WITH count(party) AS partyToLinks
 MATCH (:Crime)-[occurred:OCCURRED_AT]->(:Location)
@@ -747,14 +1006,14 @@ MATCH (:Person)-[social:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]->(:Perso
 WITH partyToLinks, crimeLocationLinks, count(social) AS socialLinks
 MATCH (:Vehicle)-[vehicleCrime:INVOLVED_IN]->(:Crime)
 WITH partyToLinks, crimeLocationLinks, socialLinks, count(vehicleCrime) AS vehicleCrimeLinks
-OPTIONAL MATCH ()-[explainable:PREDICTED_KNOWS_EXPLAINABLE]->()
+OPTIONAL MATCH ()-[explainable:PREDICTED_SOCIAL_EXPLAINABLE]->()
 WITH partyToLinks, crimeLocationLinks, socialLinks, vehicleCrimeLinks, count(explainable) AS writtenExplainableReviewLinks
-OPTIONAL MATCH ()-[pred:PREDICTED_KNOWS_REVIEW]->()
+OPTIONAL MATCH ()-[pred:PREDICTED_SOCIAL_REVIEW]->()
 RETURN partyToLinks,
        crimeLocationLinks,
        socialLinks,
        vehicleCrimeLinks,
        writtenExplainableReviewLinks,
        count(pred) AS writtenPredictedSocialReviewLinks,
-       'Final graph ML conclusion: lead with hotspot and community analytics. Use explainable Common Neighbours and Adamic Adar candidates as the strongest GML demo output. Keep supervised KNOWS link prediction as a calibrated experiment and block write-back when scores are flat. Keep vehicle, address, phone, and PARTY_TO data as supporting context rather than automated accusation.' AS finalConclusion;
+       'Final graph ML conclusion: lead with hotspot and community analytics. Use supervised social-family link prediction, explainable Common Neighbours, Adamic Adar, and unsupervised embedding similarity as review candidates. Keep crime-class prediction as a negative model-comparison experiment. Keep vehicle, address, phone, and PARTY_TO data as supporting context rather than automated accusation.' AS finalConclusion;
 

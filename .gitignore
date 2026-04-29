@@ -7,7 +7,6 @@ data/*.dump
 data/*.backup
 
 # LaTeX build output
-graph-ml/presentation.tex
 graph-ml/presentation.pdf
 *.aux
 *.log
@@ -17,6 +16,11 @@ graph-ml/presentation.pdf
 *.toc
 *.vrb
 *.synctex.gz
+
+# Exploratory research sweep artifacts
+graph-ml/EXPERIMENTS.md
+graph-ml/experiment-sweep.cypher
+graph-ml/experiment-results.cypher
 
 # OS/editor noise
 .DS_Store

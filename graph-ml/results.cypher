@@ -21,7 +21,7 @@ RETURN gds.version() AS gdsVersion;
 // QUERY 2
 // ==================================================
 // Query 0.2 - Clear old prediction relationships from previous runs.
-MATCH ()-[r:PREDICTED_KNOWS_REVIEW]->()
+MATCH ()-[r:PREDICTED_SOCIAL_REVIEW]->()
 DELETE r;
 
 // RESULT 2
@@ -32,7 +32,7 @@ DELETE r;
 // ==================================================
 // QUERY 3
 // ==================================================
-MATCH ()-[r:PREDICTED_KNOWS_EXPLAINABLE]->()
+MATCH ()-[r:PREDICTED_SOCIAL_EXPLAINABLE]->()
 DELETE r;
 
 // RESULT 3
@@ -43,54 +43,113 @@ DELETE r;
 // ==================================================
 // QUERY 4
 // ==================================================
-// Query 0.3 - Drop old in-memory GDS items from previous runs.
-CALL gds.model.drop('revised-knows-lp-model', false)
-YIELD modelName
-RETURN modelName AS droppedModel;
+MATCH ()-[r:OBSERVED_SOCIAL_LINK_TMP]->()
+DELETE r;
 
 // RESULT 4
 // --------------------------------------------------
-// droppedModel
-// revised-knows-lp-model
+// 
+// No rows returned
 
 // ==================================================
 // QUERY 5
 // ==================================================
-CALL gds.pipeline.drop('revised-knows-lp-pipeline', false)
-YIELD pipelineName
-RETURN pipelineName AS droppedPipeline;
+// Query 0.3 - Drop old in-memory GDS items from previous runs.
+CALL gds.model.drop('social-family-lp-model', false)
+YIELD modelName
+RETURN modelName AS droppedModel;
 
 // RESULT 5
 // --------------------------------------------------
-// droppedPipeline
-// revised-knows-lp-pipeline
+// droppedModel
+// social-family-lp-model
 
 // ==================================================
 // QUERY 6
 // ==================================================
-CALL gds.graph.drop('revisedKnowsContextGraph', false)
-YIELD graphName
-RETURN graphName AS droppedGraph;
+CALL gds.pipeline.drop('social-family-lp-pipeline', false)
+YIELD pipelineName
+RETURN pipelineName AS droppedPipeline;
 
 // RESULT 6
 // --------------------------------------------------
-// droppedGraph
-// revisedKnowsContextGraph
+// droppedPipeline
+// social-family-lp-pipeline
 
 // ==================================================
 // QUERY 7
 // ==================================================
-CALL gds.graph.drop('revisedSocialGraph', false)
+CALL gds.graph.drop('socialFamilyContextGraph', false)
 YIELD graphName
 RETURN graphName AS droppedGraph;
 
 // RESULT 7
 // --------------------------------------------------
 // droppedGraph
-// revisedSocialGraph
+// socialFamilyContextGraph
 
 // ==================================================
 // QUERY 8
+// ==================================================
+CALL gds.graph.drop('revisedSocialGraph', false)
+YIELD graphName
+RETURN graphName AS droppedGraph;
+
+// RESULT 8
+// --------------------------------------------------
+// droppedGraph
+// revisedSocialGraph
+
+// ==================================================
+// QUERY 9
+// ==================================================
+CALL gds.model.drop('crime-class-model', false)
+YIELD modelName
+RETURN modelName AS droppedModel;
+
+// RESULT 9
+// --------------------------------------------------
+// droppedModel
+// crime-class-model
+
+// ==================================================
+// QUERY 10
+// ==================================================
+CALL gds.pipeline.drop('crime-class-pipeline', false)
+YIELD pipelineName
+RETURN pipelineName AS droppedPipeline;
+
+// RESULT 10
+// --------------------------------------------------
+// droppedPipeline
+// crime-class-pipeline
+
+// ==================================================
+// QUERY 11
+// ==================================================
+CALL gds.graph.drop('crimeClassGraph', false)
+YIELD graphName
+RETURN graphName AS droppedGraph;
+
+// RESULT 11
+// --------------------------------------------------
+// droppedGraph
+// crimeClassGraph
+
+// ==================================================
+// QUERY 12
+// ==================================================
+CALL gds.graph.drop('socialEmbeddingGraph', false)
+YIELD graphName
+RETURN graphName AS droppedGraph;
+
+// RESULT 12
+// --------------------------------------------------
+// droppedGraph
+// socialEmbeddingGraph
+
+// ==================================================
+// QUERY 13
 // ==================================================
 // SECTION 1: WHY THE TARGET CHANGED
 
@@ -206,7 +265,7 @@ RETURN linkFamily,
        reading
 ORDER BY observedLinks DESC;
 
-// RESULT 8
+// RESULT 13
 // --------------------------------------------------
 // linkFamily | relationshipTypes | observedLinks | coveredSources | sources | sourceCoveragePercent | coveredTargets | targets | targetCoveragePercent | pairDensityPercent | reading
 // Crime -> Location | OCCURRED_AT | 28762 | 28762 | 28762 | 100.0 | 13302 | 14904 | 89.3 | 0.0067 | Strongest descriptive signal for hotspots and place profiles.
@@ -217,7 +276,7 @@ ORDER BY observedLinks DESC;
 // Person -> Crime | PARTY_TO | 55 | 29 | 369 | 7.9 | 55 | 28762 | 0.2 | 0.0005 | Do not use as the main automated prediction target.
 
 // ==================================================
-// QUERY 9
+// QUERY 14
 // ==================================================
 // Query 1.2 - Person-Crime sparsity limit.
 MATCH (p:Person)
@@ -233,13 +292,13 @@ RETURN persons,
        round(1000000.0 * observedPartyTo / (persons * crimes)) / 10000.0 AS positiveClassPercent,
        'PARTY_TO is retained as observed context, not as the main write-back target.' AS decision;
 
-// RESULT 9
+// RESULT 14
 // --------------------------------------------------
 // persons | crimes | observedPartyTo | possiblePairs | positiveClassPercent | decision
 // 369 | 28762 | 55 | 10613178 | 0.0005 | PARTY_TO is retained as observed context, not as the main write-back target.
 
 // ==================================================
-// QUERY 10
+// QUERY 15
 // ==================================================
 // Query 1.3 - Supporting context coverage from graph stats.
 MATCH (p:Person)
@@ -270,13 +329,13 @@ RETURN people,
        round(1000.0 * vehiclesLinkedToCrime / vehicles) / 10.0 AS vehicleCrimeCoveragePercent,
        'Address and phone data are strong supporting context. Vehicle links exist but are mostly one-off.' AS contextReading;
 
-// RESULT 10
+// RESULT 15
 // --------------------------------------------------
 // people | peopleWithCurrentAddress | addressCoveragePercent | peopleWithPhone | phoneCoveragePercent | vehicles | vehiclesLinkedToCrime | vehicleCrimeCoveragePercent | contextReading
 // 369 | 368 | 99.7 | 328 | 88.9 | 1000 | 978 | 97.8 | Address and phone data are strong supporting context. Vehicle links exist but are mostly one-off.
 
 // ==================================================
-// QUERY 11
+// QUERY 16
 // ==================================================
 // SECTION 2: HOTSPOT AND AREA ANALYTICS
 
@@ -289,13 +348,13 @@ RETURN count(c) AS crimes,
        sum(CASE WHEN locationLinks = 0 THEN 1 ELSE 0 END) AS crimesWithoutLocation,
        round(1000.0 * sum(CASE WHEN locationLinks > 0 THEN 1 ELSE 0 END) / count(c)) / 10.0 AS locationCoveragePercent;
 
-// RESULT 11
+// RESULT 16
 // --------------------------------------------------
 // crimes | crimesWithLocation | crimesWithoutLocation | locationCoveragePercent
 // 28762 | 28762 | 0 | 100.0
 
 // ==================================================
-// QUERY 12
+// QUERY 17
 // ==================================================
 // Query 2.2 - Top hotspots by repeated incident count.
 MATCH (c:Crime)-[:OCCURRED_AT]->(l:Location)
@@ -315,7 +374,7 @@ RETURN location,
 ORDER BY incidents DESC, distinctCrimeTypes DESC
 LIMIT 20;
 
-// RESULT 12
+// RESULT 17
 // --------------------------------------------------
 // location | incidents | distinctCrimeTypes | exampleCrimeTypes | hotspotReading
 // Parking Area | 811 | 13 | ["Drugs","Public order","Other theft","Theft from the person","Violence and sexual offences"] | Very high repeat-place priority
@@ -340,7 +399,7 @@ LIMIT 20;
 // 185 Albion Street | 29 | 8 | ["Violence and sexual offences","Other theft","Criminal damage and arson","Burglary","Public order"] | Moderate repeat-place priority
 
 // ==================================================
-// QUERY 13
+// QUERY 18
 // ==================================================
 // Query 2.3 - Area-level crime profiles.
 MATCH (c:Crime)-[:OCCURRED_AT]->(:Location)-[:LOCATION_IN_AREA]->(a:Area)
@@ -358,7 +417,7 @@ RETURN areaId,
 ORDER BY totalIncidents DESC
 LIMIT 20;
 
-// RESULT 13
+// RESULT 18
 // --------------------------------------------------
 // areaId | totalIncidents | dominantCrimeTypes | areaReading
 // 4:f095f8b5-3a0a-4746-a6a6-8b1fc339b4b3:17012 | 975 | ["Violence and sexual offences (249)","Public order (129)","Theft from the person (123)","Other theft (113)","Vehicle crime (79)"] | Area profile supports place-based prioritisation better than person accusation.
@@ -383,7 +442,7 @@ LIMIT 20;
 // 4:f095f8b5-3a0a-4746-a6a6-8b1fc339b4b3:17000 | 436 | ["Violence and sexual offences (163)","Criminal damage and arson (74)","Burglary (43)","Vehicle crime (37)","Other theft (36)"] | Area profile supports place-based prioritisation better than person accusation.
 
 // ==================================================
-// QUERY 14
+// QUERY 19
 // ==================================================
 // Query 2.4 - Repeat pattern: same crime type at same location.
 MATCH (c1:Crime)-[:OCCURRED_AT]->(l:Location)<-[:OCCURRED_AT]-(c2:Crime)
@@ -400,7 +459,7 @@ RETURN location,
 ORDER BY sameTypeCrimePairs DESC
 LIMIT 20;
 
-// RESULT 14
+// RESULT 19
 // --------------------------------------------------
 // location | crimeType | sameTypeCrimePairs | patternReading
 // Shopping Area | Shoplifting | 1405 | Historical repeat pattern, not a claim about future incidents.
@@ -425,7 +484,7 @@ LIMIT 20;
 // Supermarket | Violence and sexual offences | 120 | Historical repeat pattern, not a claim about future incidents.
 
 // ==================================================
-// QUERY 15
+// QUERY 20
 // ==================================================
 // Query 2.5 - Historical place baseline by crime type.
 MATCH (c:Crime)
@@ -443,7 +502,7 @@ RETURN crimeType,
        'Historical baseline for where this crime type most often appears.' AS baselineReading
 ORDER BY crimeType;
 
-// RESULT 15
+// RESULT 20
 // --------------------------------------------------
 // crimeType | topLocations | baselineReading
 // Bicycle theft | ["Parking Area (23)","Shopping Area (15)","Supermarket (10)","Nightclub (6)","Petrol Station (6)"] | Historical baseline for where this crime type most often appears.
@@ -461,7 +520,7 @@ ORDER BY crimeType;
 // Violence and sexual offences | ["Parking Area (214)","Supermarket (103)","Nightclub (95)","Petrol Station (66)","Shopping Area (64)"] | Historical baseline for where this crime type most often appears.
 
 // ==================================================
-// QUERY 16
+// QUERY 21
 // ==================================================
 // Query 2.6 - Vehicle-crime-location context.
 MATCH (v:Vehicle)-[:INVOLVED_IN]->(c:Crime)-[:OCCURRED_AT]->(l:Location)
@@ -472,7 +531,7 @@ RETURN c.type AS crimeType,
 ORDER BY involvedVehicles DESC, crimes DESC, location
 LIMIT 25;
 
-// RESULT 16
+// RESULT 21
 // --------------------------------------------------
 // crimeType | location | involvedVehicles | crimes
 // Vehicle crime | Parking Area | 20 | 20
@@ -502,7 +561,7 @@ LIMIT 25;
 // Vehicle crime | 74 Lanstead Drive | 3 | 3
 
 // ==================================================
-// QUERY 17
+// QUERY 22
 // ==================================================
 // Query 2.7 - Repeated vehicle involvement check.
 MATCH (v:Vehicle)
@@ -516,26 +575,27 @@ RETURN linkedCrimes,
        END AS vehicleReading
 ORDER BY linkedCrimes DESC;
 
-// RESULT 17
+// RESULT 22
 // --------------------------------------------------
 // linkedCrimes | vehicles | vehicleReading
 // 1 | 978 | Weak vehicle link-prediction signal
 // 0 | 22 | Weak vehicle link-prediction signal
 
 // ==================================================
-// QUERY 18
+// QUERY 23
 // ==================================================
 // SECTION 3: SOCIAL GRAPH ANALYTICS
 
 // Query 3.1 - Social relationship mix.
 MATCH (:Person)-[r]->(:Person)
+WHERE type(r) IN ['KNOWS', 'KNOWS_SN', 'KNOWS_PHONE', 'KNOWS_LW', 'FAMILY_REL']
 RETURN type(r) AS relationshipType,
        count(r) AS directedLinks,
        count(DISTINCT startNode(r)) AS distinctSources,
        count(DISTINCT endNode(r)) AS distinctTargets
 ORDER BY directedLinks DESC;
 
-// RESULT 18
+// RESULT 23
 // --------------------------------------------------
 // relationshipType | directedLinks | distinctSources | distinctTargets
 // KNOWS | 586 | 233 | 312
@@ -545,7 +605,7 @@ ORDER BY directedLinks DESC;
 // KNOWS_LW | 80 | 60 | 62
 
 // ==================================================
-// QUERY 19
+// QUERY 24
 // ==================================================
 // Query 3.2 - Social coverage.
 MATCH (p:Person)
@@ -556,13 +616,13 @@ RETURN count(p) AS people,
        sum(CASE WHEN socialDegree = 0 THEN 1 ELSE 0 END) AS sociallyIsolatedPeople,
        round(1000.0 * sum(CASE WHEN socialDegree > 0 THEN 1 ELSE 0 END) / count(p)) / 10.0 AS sociallyConnectedPercent;
 
-// RESULT 19
+// RESULT 24
 // --------------------------------------------------
 // people | sociallyConnectedPeople | sociallyIsolatedPeople | sociallyConnectedPercent
 // 369 | 346 | 23 | 93.8
 
 // ==================================================
-// QUERY 20
+// QUERY 25
 // ==================================================
 // Query 3.3 - Project the social graph for GDS community and centrality.
 CALL gds.graph.project(
@@ -585,13 +645,13 @@ RETURN graphName,
          ELSE round(1000000.0 * relationshipCount / (nodeCount * (nodeCount - 1))) / 1000000.0
        END AS approximateDensity;
 
-// RESULT 20
+// RESULT 25
 // --------------------------------------------------
 // graphName | nodeCount | relationshipCount | approximateDensity
 // revisedSocialGraph | 369 | 2360 | 0.01738
 
 // ==================================================
-// QUERY 21
+// QUERY 26
 // ==================================================
 // Query 3.4 - PageRank: socially central people.
 CALL gds.pageRank.stream('revisedSocialGraph')
@@ -602,7 +662,7 @@ RETURN p.name + ' ' + coalesce(p.surname, '') AS person,
 ORDER BY pageRankScore DESC
 LIMIT 15;
 
-// RESULT 21
+// RESULT 26
 // --------------------------------------------------
 // person | pageRankScore
 // Amanda Alexander | 3.2667833583686665
@@ -622,7 +682,7 @@ LIMIT 15;
 // Bonnie Gilbert | 2.4257982846647392
 
 // ==================================================
-// QUERY 22
+// QUERY 27
 // ==================================================
 // Query 3.5 - Louvain communities with observed crime context.
 CALL gds.louvain.write(
@@ -638,13 +698,13 @@ RETURN communityCount,
          ELSE 'Weak community structure.'
        END AS communityReading;
 
-// RESULT 22
+// RESULT 27
 // --------------------------------------------------
 // communityCount | modularity | communityReading
 // 41 | 0.6709580580293019 | Strong community structure.
 
 // ==================================================
-// QUERY 23
+// QUERY 28
 // ==================================================
 // Query 3.6 - Community crime-context concentration.
 MATCH (p:Person)
@@ -669,7 +729,7 @@ RETURN communityId,
 ORDER BY totalObservedPartyToLinks DESC, crimeLinkedPeoplePercent DESC
 LIMIT 15;
 
-// RESULT 23
+// RESULT 28
 // --------------------------------------------------
 // communityId | people | crimeLinkedPeople | totalObservedPartyToLinks | crimeLinkedPeoplePercent | exampleMembers | reading
 // 239 | 10 | 8 | 29 | 80.0 | ["William Dixon","Raymond Walker","Kathleen Peters","Diana Murray","Kathy Wheeler","Alan Ward","Jack Powell","Phillip Williamson"] | Community-level context is stronger and safer than individual Person-Crime prediction.
@@ -684,39 +744,48 @@ LIMIT 15;
 // 249 | 32 | 1 | 1 | 3.1 | ["Mary Peters","Irene Austin","Harry Garrett","Eugene Ferguson","Douglas Cole","Wanda Webb","Kevin Hawkins","Jennifer Gray"] | Community-level context is stronger and safer than individual Person-Crime prediction.
 
 // ==================================================
-// QUERY 24
+// QUERY 29
 // ==================================================
-// SECTION 4: MAIN GML PIPELINE - PERSON-PERSON KNOWS
+// SECTION 4: MAIN GML PIPELINE - PERSON-PERSON SOCIAL-FAMILY LINK PREDICTION
 
-// Query 4.1 - KNOWS target size and imbalance.
+// Query 4.1 - Materialize a temporary unified social-family target.
+MATCH (p:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(q:Person)
+WHERE elementId(p) < elementId(q)
+MERGE (p)-[:OBSERVED_SOCIAL_LINK_TMP]->(q);
+
+// RESULT 29
+// --------------------------------------------------
+// 
+// No rows returned
+
+// ==================================================
+// QUERY 30
+// ==================================================
+// Query 4.2 - Unified social target size and imbalance.
 MATCH (p:Person)
 WITH count(p) AS people
-MATCH (:Person)-[:KNOWS]->(:Person)
-WITH people, count(*) AS knowsLinks
+MATCH (:Person)-[:OBSERVED_SOCIAL_LINK_TMP]->(:Person)
+WITH people, count(*) AS socialLinks
 RETURN people,
-       knowsLinks,
+       socialLinks,
        people * (people - 1) AS possibleDirectedPersonPairs,
-       round(1000000.0 * knowsLinks / (people * (people - 1))) / 10000.0 AS positiveClassPercent,
-       'KNOWS is still sparse, but it has far more labels than PARTY_TO and is safer to interpret.' AS targetReading;
+       round(1000000.0 * socialLinks / (people * (people - 1))) / 10000.0 AS positiveClassPercent,
+       'Unified social-family target combines KNOWS, phone, social-network, living-with, and family evidence for review-only association prediction.' AS targetReading;
 
-// RESULT 24
+// RESULT 30
 // --------------------------------------------------
-// people | knowsLinks | possibleDirectedPersonPairs | positiveClassPercent | targetReading
-// 369 | 586 | 135792 | 0.4315 | KNOWS is still sparse, but it has far more labels than PARTY_TO and is safer to interpret.
+// people | socialLinks | possibleDirectedPersonPairs | positiveClassPercent | targetReading
+// 369 | 586 | 135792 | 0.4315 | Unified social-family target combines KNOWS, phone, social-network, living-with, and family evidence for review-only association prediction.
 
 // ==================================================
-// QUERY 25
+// QUERY 31
 // ==================================================
-// Query 4.2 - Project a context graph for KNOWS link prediction.
+// Query 4.3 - Project a context graph for social-family link prediction.
 CALL gds.graph.project(
-  'revisedKnowsContextGraph',
+  'socialFamilyContextGraph',
   ['Person', 'Phone', 'Email', 'Location', 'Crime'],
   {
-    KNOWS: {orientation: 'UNDIRECTED'},
-    KNOWS_SN: {orientation: 'UNDIRECTED'},
-    KNOWS_PHONE: {orientation: 'UNDIRECTED'},
-    KNOWS_LW: {orientation: 'UNDIRECTED'},
-    FAMILY_REL: {orientation: 'UNDIRECTED'},
+    OBSERVED_SOCIAL_LINK_TMP: {orientation: 'UNDIRECTED'},
     HAS_PHONE: {orientation: 'UNDIRECTED'},
     HAS_EMAIL: {orientation: 'UNDIRECTED'},
     CURRENT_ADDRESS: {orientation: 'UNDIRECTED'},
@@ -730,34 +799,34 @@ RETURN graphName,
        relationshipCount,
        projectMillis;
 
-// RESULT 25
+// RESULT 31
 // --------------------------------------------------
 // graphName | nodeCount | relationshipCount | projectMillis
-// revisedKnowsContextGraph | 44691 | 62042 | 170
+// socialFamilyContextGraph | 44691 | 60854 | 72
 
 // ==================================================
-// QUERY 26
+// QUERY 32
 // ==================================================
-// Query 4.3 - Create link-prediction pipeline.
-CALL gds.beta.pipeline.linkPrediction.create('revised-knows-lp-pipeline')
+// Query 4.4 - Create link-prediction pipeline.
+CALL gds.beta.pipeline.linkPrediction.create('social-family-lp-pipeline')
 YIELD name
 RETURN name AS pipeline;
 
-// RESULT 26
+// RESULT 32
 // --------------------------------------------------
 // pipeline
-// revised-knows-lp-pipeline
+// social-family-lp-pipeline
 
 // ==================================================
-// QUERY 27
+// QUERY 33
 // ==================================================
-// Query 4.4 - Add FastRP embeddings.
+// Query 4.5 - Add FastRP embeddings.
 CALL gds.beta.pipeline.linkPrediction.addNodeProperty(
-  'revised-knows-lp-pipeline',
+  'social-family-lp-pipeline',
   'fastRP',
   {
-    mutateProperty: 'embedding',
-    embeddingDimension: 64,
+    mutateProperty: 'fastRpEmbedding',
+    embeddingDimension: 128,
     iterationWeights: [0.0, 1.0, 1.0, 1.0],
     randomSeed: 42
   }
@@ -765,34 +834,74 @@ CALL gds.beta.pipeline.linkPrediction.addNodeProperty(
 YIELD nodePropertySteps
 RETURN nodePropertySteps;
 
-// RESULT 27
+// RESULT 33
 // --------------------------------------------------
 // nodePropertySteps
-// [{"name":"gds.fastRP.mutate","config":{"randomSeed":42,"contextRelationshipTypes":[],"iterationWeights":[0.0,1.0,1.0,1.0],"embeddingDimension":64,"contextNodeLabels":[],"mutateProperty":"embedding"}}]
+// [{"name":"gds.fastRP.mutate","config":{"randomSeed":42,"contextRelationshipTypes":[],"iterationWeights":[0.0,1.0,1.0,1.0],"embeddingDimension":128,"contextNodeLabels":[],"mutateProperty":"fastRpEmbedding"}}]
 
 // ==================================================
-// QUERY 28
+// QUERY 34
 // ==================================================
-// Query 4.5 - Add pairwise embedding feature.
+// Query 4.6 - Add Node2Vec embeddings.
+CALL gds.beta.pipeline.linkPrediction.addNodeProperty(
+  'social-family-lp-pipeline',
+  'node2vec',
+  {
+    mutateProperty: 'node2vecEmbedding',
+    embeddingDimension: 64,
+    walkLength: 20,
+    walksPerNode: 10,
+    randomSeed: 42
+  }
+)
+YIELD nodePropertySteps
+RETURN nodePropertySteps;
+
+// RESULT 34
+// --------------------------------------------------
+// nodePropertySteps
+// [{"name":"gds.fastRP.mutate","config":{"randomSeed":42,"contextRelationshipTypes":[],"iterationWeights":[0.0,1.0,1.0,1.0],"embeddingDimension":128,"contextNodeLabels":[],"mutateProperty":"fastRpEmbedding"}},{"name":"gds.node2vec.mutate","config":{"randomSeed":42,"walkLength":20,"walksPerNode":10,"contextRelationshipTypes":[],"embeddingDimension":64,"contextNodeLabels":[],"mutateProperty":"node2vecEmbedding"}}]
+
+// ==================================================
+// QUERY 35
+// ==================================================
+// Query 4.7 - Add pairwise FastRP feature.
 CALL gds.beta.pipeline.linkPrediction.addFeature(
-  'revised-knows-lp-pipeline',
+  'social-family-lp-pipeline',
   'hadamard',
-  {nodeProperties: ['embedding']}
+  {nodeProperties: ['fastRpEmbedding']}
 )
 YIELD featureSteps
 RETURN featureSteps;
 
-// RESULT 28
+// RESULT 35
 // --------------------------------------------------
 // featureSteps
-// [{"name":"HADAMARD","config":{"nodeProperties":["embedding"]}}]
+// [{"name":"HADAMARD","config":{"nodeProperties":["fastRpEmbedding"]}}]
 
 // ==================================================
-// QUERY 29
+// QUERY 36
 // ==================================================
-// Query 4.6 - Configure train/test split.
+// Query 4.8 - Add pairwise Node2Vec feature.
+CALL gds.beta.pipeline.linkPrediction.addFeature(
+  'social-family-lp-pipeline',
+  'hadamard',
+  {nodeProperties: ['node2vecEmbedding']}
+)
+YIELD featureSteps
+RETURN featureSteps;
+
+// RESULT 36
+// --------------------------------------------------
+// featureSteps
+// [{"name":"HADAMARD","config":{"nodeProperties":["fastRpEmbedding"]}},{"name":"HADAMARD","config":{"nodeProperties":["node2vecEmbedding"]}}]
+
+// ==================================================
+// QUERY 37
+// ==================================================
+// Query 4.9 - Configure train/test split.
 CALL gds.beta.pipeline.linkPrediction.configureSplit(
-  'revised-knows-lp-pipeline',
+  'social-family-lp-pipeline',
   {
     testFraction: 0.20,
     trainFraction: 0.60,
@@ -803,43 +912,68 @@ CALL gds.beta.pipeline.linkPrediction.configureSplit(
 YIELD splitConfig
 RETURN splitConfig;
 
-// RESULT 29
+// RESULT 37
 // --------------------------------------------------
 // splitConfig
 // {"negativeSamplingRatio":1.0,"testFraction":0.2,"validationFolds":3,"trainFraction":0.6}
 
 // ==================================================
-// QUERY 30
+// QUERY 38
 // ==================================================
-// Query 4.7 - Logistic regression model candidate.
-CALL gds.beta.pipeline.linkPrediction.addLogisticRegression(
-  'revised-knows-lp-pipeline',
+// Query 4.10 - Model-selection note from the experiment sweep.
+RETURN 'Logistic Regression was tested during the experiment sweep. It can score higher AUCPR, but its live probabilities are nearly flat. The final deployable review pipeline keeps Random Forest because it gives usable probability separation for human-review ranking.' AS modelSelectionNote;
+
+// RESULT 38
+// --------------------------------------------------
+// modelSelectionNote
+// Logistic Regression was tested during the experiment sweep. It can score higher AUCPR, but its live probabilities are nearly flat. The final deployable review pipeline keeps Random Forest because it gives usable probability separation for human-review ranking.
+
+// ==================================================
+// QUERY 39
+// ==================================================
+// Query 4.11 - Random Forest model candidate.
+CALL gds.beta.pipeline.linkPrediction.addRandomForest(
+  'social-family-lp-pipeline',
   {
-    penalty: 0.0,
-    maxEpochs: 100,
-    learningRate: 0.001
+    numberOfSamplesRatio: 1.0,
+    numberOfDecisionTrees: 200,
+    maxFeaturesRatio: 1.0
   }
 )
 YIELD parameterSpace
 RETURN parameterSpace;
 
-// RESULT 30
+// RESULT 39
 // --------------------------------------------------
 // parameterSpace
-// {"MultilayerPerceptron":[],"RandomForest":[],"LogisticRegression":[{"maxEpochs":100,"minEpochs":1,"classWeights":[],"penalty":0.0,"patience":1,"methodName":"LogisticRegression","focusWeight":0.0,"batchSize":100,"tolerance":0.001,"learningRate":0.001}]}
+// {"MultilayerPerceptron":[],"RandomForest":[{"maxDepth":2147483647,"minLeafSize":1,"criterion":"GINI","minSplitSize":2,"numberOfDecisionTrees":200,"maxFeaturesRatio":1.0,"methodName":"RandomForest","numberOfSamplesRatio":1.0}],"LogisticRegression":[]}
 
 // ==================================================
-// QUERY 31
+// QUERY 40
 // ==================================================
-// Query 4.8 - Train KNOWS link-prediction model.
+// Query 4.12 - Confirm candidate model families before training.
+CALL gds.pipeline.list('social-family-lp-pipeline')
+YIELD pipelineInfo
+RETURN pipelineInfo.trainingParameterSpace AS candidateModelFamilies,
+       'GDS will compare candidate model families using validation AUCPR and keep the best trained model.' AS modelSelectionReading;
+
+// RESULT 40
+// --------------------------------------------------
+// candidateModelFamilies | modelSelectionReading
+// {"MultilayerPerceptron":[],"RandomForest":[{"maxDepth":2147483647,"minLeafSize":1,"criterion":"GINI","minSplitSize":2,"numberOfDecisionTrees":200,"maxFeaturesRatio":1.0,"methodName":"RandomForest","numberOfSamplesRatio":1.0}],"LogisticRegression":[]} | GDS will compare candidate model families using validation AUCPR and keep the best trained model.
+
+// ==================================================
+// QUERY 41
+// ==================================================
+// Query 4.13 - Train social-family link-prediction model.
 CALL gds.beta.pipeline.linkPrediction.train(
-  'revisedKnowsContextGraph',
+  'socialFamilyContextGraph',
   {
-    pipeline: 'revised-knows-lp-pipeline',
-    modelName: 'revised-knows-lp-model',
+    pipeline: 'social-family-lp-pipeline',
+    modelName: 'social-family-lp-model',
     sourceNodeLabel: 'Person',
     targetNodeLabel: 'Person',
-    targetRelationshipType: 'KNOWS',
+    targetRelationshipType: 'OBSERVED_SOCIAL_LINK_TMP',
     metrics: ['AUCPR'],
     randomSeed: 42
   }
@@ -849,6 +983,7 @@ RETURN trainMillis,
        modelInfo.metrics.AUCPR.train.avg AS trainAUCPR,
        modelInfo.metrics.AUCPR.validation.avg AS validationAUCPR,
        modelInfo.metrics.AUCPR.test AS testAUCPR,
+       modelInfo.bestParameters.methodName AS selectedModel,
        modelInfo.bestParameters AS bestParameters,
        CASE
          WHEN modelInfo.metrics.AUCPR.test >= 0.70 THEN 'Strong enough for social-link review ranking.'
@@ -856,15 +991,15 @@ RETURN trainMillis,
          ELSE 'Not reliable enough even for social-link ranking.'
        END AS modelReading;
 
-// RESULT 31
+// RESULT 41
 // --------------------------------------------------
-// trainMillis | trainAUCPR | validationAUCPR | testAUCPR | bestParameters | modelReading
-// 540 | 0.6607582204031984 | 0.5719450615388303 | 0.5941510142765325 | {"maxEpochs":100,"minEpochs":1,"classWeights":[],"penalty":0.0,"patience":1,"methodName":"LogisticRegression","focusWeight":0.0,"batchSize":100,"tolerance":0.001,"learningRate":0.001} | Weak but usable as a review-priority signal.
+// trainMillis | trainAUCPR | validationAUCPR | testAUCPR | selectedModel | bestParameters | modelReading
+// 91532 | 0.9639827272375755 | 0.6270599114000692 | 0.5578128982282821 | RandomForest | {"maxDepth":2147483647,"minLeafSize":1,"criterion":"GINI","minSplitSize":2,"numberOfDecisionTrees":200,"maxFeaturesRatio":1.0,"methodName":"RandomForest","numberOfSamplesRatio":1.0} | Weak but usable as a review-priority signal.
 
 // ==================================================
-// QUERY 32
+// QUERY 42
 // ==================================================
-// Query 4.9 - Explainable link prediction baseline: Common Neighbours.
+// Query 4.11 - Explainable link prediction baseline: Common Neighbours.
 MATCH (p1:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(shared:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2:Person)
 WHERE elementId(p1) < elementId(p2)
   AND NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
@@ -881,7 +1016,7 @@ RETURN p1.name + ' ' + coalesce(p1.surname, '') AS personA,
 ORDER BY commonNeighbours DESC, personA, personB
 LIMIT 25;
 
-// RESULT 32
+// RESULT 42
 // --------------------------------------------------
 // personA | personB | commonNeighbours | explanation | reading
 // Amanda Alexander | Kathryn Allen | 3 | ["Benjamin Hamilton","Denise Brown","Wanda Webb"] | High-specificity Common Neighbours candidate for human review.
@@ -890,9 +1025,9 @@ LIMIT 25;
 // Roy Dean | Jonathan Hunt | 3 | ["Phillip Perry","Peter Bryant","Deborah Ford"] | High-specificity Common Neighbours candidate for human review.
 
 // ==================================================
-// QUERY 33
+// QUERY 43
 // ==================================================
-// Query 4.10 - Explainable link prediction baseline: Adamic Adar style score.
+// Query 4.12 - Explainable link prediction baseline: Adamic Adar style score.
 MATCH (p1:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(shared:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2:Person)
 WHERE elementId(p1) < elementId(p2)
   AND NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
@@ -917,7 +1052,7 @@ RETURN p1.name + ' ' + coalesce(p1.surname, '') AS personA,
 ORDER BY adamicAdarScore DESC, commonNeighbours DESC
 LIMIT 25;
 
-// RESULT 33
+// RESULT 43
 // --------------------------------------------------
 // personA | personB | commonNeighbours | adamicAdarScore | explanation | reading
 // Jessica Kelly | Alan Ward | 3 | 1.2710185681883481 | ["Brian Morales","Phillip Williamson","Kathy Wheeler"] | Higher score means the shared neighbours are more specific.
@@ -947,9 +1082,9 @@ LIMIT 25;
 // Jason Hamilton | Annie Duncan | 2 | 0.814706547658322 | ["Christopher Oliver","Arthur Willis"] | Higher score means the shared neighbours are more specific.
 
 // ==================================================
-// QUERY 34
+// QUERY 44
 // ==================================================
-// Query 4.11 - Write conservative explainable social candidates.
+// Query 4.13 - Write conservative explainable social candidates.
 CALL {
   MATCH (p1:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(shared:Person)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2:Person)
   WHERE elementId(p1) < elementId(p2)
@@ -971,7 +1106,7 @@ CALL {
   ORDER BY adamicAdarScore DESC, commonNeighbours DESC
   LIMIT 25
 }
-MERGE (p1)-[r:PREDICTED_KNOWS_EXPLAINABLE]->(p2)
+MERGE (p1)-[r:PREDICTED_SOCIAL_EXPLAINABLE]->(p2)
 SET r.commonNeighbours = commonNeighbours,
     r.adamicAdarScore = adamicAdarScore,
     r.explanation = explanation,
@@ -979,21 +1114,27 @@ SET r.commonNeighbours = commonNeighbours,
 RETURN count(r) AS writtenExplainableReviewLinks,
        'Explainable candidates were written because they have clear shared-neighbour evidence.' AS writeBackReading;
 
-// RESULT 34
+// RESULT 44
 // --------------------------------------------------
 // writtenExplainableReviewLinks | writeBackReading
 // 4 | Explainable candidates were written because they have clear shared-neighbour evidence.
 
 // ==================================================
-// QUERY 35
+// QUERY 45
 // ==================================================
-// Query 4.12 - Calibration check for supervised predicted social links.
+// Query 4.14 - Calibration check for supervised predicted social links.
+CALL gds.model.list('social-family-lp-model')
+YIELD modelInfo
+WITH modelInfo.metrics.AUCPR.test AS testAUCPR,
+     modelInfo.bestParameters.methodName AS selectedModel
 CALL gds.beta.pipeline.linkPrediction.predict.stream(
-  'revisedKnowsContextGraph',
-  {modelName: 'revised-knows-lp-model', topN: 200}
+  'socialFamilyContextGraph',
+  {modelName: 'social-family-lp-model', topN: 200}
 )
 YIELD node1, node2, probability
-WITH gds.util.asNode(node1) AS p1,
+WITH testAUCPR,
+     selectedModel,
+     gds.util.asNode(node1) AS p1,
      gds.util.asNode(node2) AS p2,
      probability
 WHERE p1:Person
@@ -1001,32 +1142,37 @@ WHERE p1:Person
   AND elementId(p1) < elementId(p2)
   AND NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
 WITH count(*) AS candidateLinks,
+     testAUCPR,
+     selectedModel,
      min(probability) AS lowestProbability,
      max(probability) AS highestProbability,
      avg(probability) AS averageProbability
 RETURN candidateLinks,
+       selectedModel,
+       testAUCPR,
        lowestProbability,
        highestProbability,
        averageProbability,
        highestProbability - lowestProbability AS probabilityBand,
        CASE
          WHEN candidateLinks = 0 THEN 'No unseen Person-Person candidates returned.'
+         WHEN testAUCPR < 0.50 THEN 'Do not write back. Held-out test AUCPR is too weak.'
          WHEN highestProbability - lowestProbability < 0.01 THEN 'Do not write back. Scores are too flat.'
          ELSE 'Scores have separation. Candidate social links can be reviewed.'
        END AS deploymentDecision;
 
-// RESULT 35
+// RESULT 45
 // --------------------------------------------------
-// candidateLinks | lowestProbability | highestProbability | averageProbability | probabilityBand | deploymentDecision
-// 97 | 0.5008890680021013 | 0.5018886469230892 | 0.5010775032418796 | 0.000999578920987898 | Do not write back. Scores are too flat.
+// candidateLinks | selectedModel | testAUCPR | lowestProbability | highestProbability | averageProbability | probabilityBand | deploymentDecision
+// 130 | RandomForest | 0.5578128982282821 | 0.705 | 0.885 | 0.7449230769230767 | 0.18000000000000005 | Scores have separation. Candidate social links can be reviewed.
 
 // ==================================================
-// QUERY 36
+// QUERY 46
 // ==================================================
-// Query 4.13 - Top supervised candidate social links for comparison.
+// Query 4.15 - Top supervised candidate social links for comparison.
 CALL gds.beta.pipeline.linkPrediction.predict.stream(
-  'revisedKnowsContextGraph',
-  {modelName: 'revised-knows-lp-model', topN: 50}
+  'socialFamilyContextGraph',
+  {modelName: 'social-family-lp-model', topN: 50}
 )
 YIELD node1, node2, probability
 WITH gds.util.asNode(node1) AS p1,
@@ -1049,44 +1195,50 @@ RETURN p1.name + ' ' + coalesce(p1.surname, '') AS personA,
 ORDER BY probability DESC
 LIMIT 25;
 
-// RESULT 36
+// RESULT 46
 // --------------------------------------------------
 // personA | personB | probability | sharedAddressCount | personAObservedCrimeLinks | personBObservedCrimeLinks | reading
-// Ryan Smith | Carl Fuller | 0.5018886469230892 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Theresa Powell | Carl Fuller | 0.501803856881305 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Patricia Hanson | Donald Johnston | 0.5017822512316934 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Catherine White | Kimberly Wood | 0.5015339656107687 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Ryan Smith | Patricia Hanson | 0.5014692596436787 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Theresa Powell | Patricia Hanson | 0.5014118701428782 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Catherine White | Arthur Willis | 0.501371444968605 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Jerry Fernandez | Donna Frazier | 0.5013470616845326 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Carlos Black | Kimberly Wood | 0.5013265826322526 | 0 | 1 | 0 | Candidate social/context link for review only.
-// Jerry Fernandez | Gloria Day | 0.5013014433978342 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Ashley Robertson | Catherine White | 0.5012814368719936 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Peter Turner | Carl Fuller | 0.5012723341510055 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Gary Vasquez | Catherine White | 0.5012687977886265 | 0 | 1 | 0 | Candidate social/context link for review only.
-// Joshua Mccoy | Carl Fuller | 0.5012648939813432 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Raymond Williamson | Dennis Bradley | 0.5012233489074406 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Justin Arnold | Kimberly Wood | 0.501192733237227 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Kevin Hawkins | Philip Welch | 0.5011883334240288 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Kevin Hawkins | Sandra Payne | 0.5011883334240288 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Ryan Smith | Amanda Alexander | 0.5011750905331827 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Karen Evans | Kimberly Wood | 0.5011731809482243 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Virginia Allen | Ruth Hansen | 0.5011718937513273 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Pamela Gibson | Dennis Bradley | 0.5011646985421078 | 0 | 0 | 0 | Candidate social/context link for review only.
-// Patricia Hanson | Andrea Montgomery | 0.5011645651071162 | 0 | 0 | 1 | Candidate social/context link for review only.
+// Raymond Williamson | Dennis Bradley | 0.87 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Sandra Payne | Philip Welch | 0.865 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Nicholas Mason | Justin Payne | 0.85 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Matthew Phillips | Justin Payne | 0.845 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Richard Hanson | Norma Jackson | 0.84 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Nicholas Mason | Matthew Phillips | 0.84 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Craig Gordon | Kelly Franklin | 0.83 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Jennifer Jacobs | Maria Rivera | 0.83 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Lawrence Warren | Jeffrey Campbell | 0.82 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Barbara Torres | Kelly Franklin | 0.815 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Heather Howard | Jennifer Jacobs | 0.805 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Rebecca Lee | Justin Payne | 0.805 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Heather Howard | Maria Rivera | 0.805 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Rebecca Lee | Matthew Phillips | 0.805 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Timothy Garza | Deborah Ford | 0.8 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Carl Hayes | Angela Mccoy | 0.79 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Timothy Garza | Phillip Perry | 0.785 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Michael Mason | Philip Welch | 0.785 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Jeremy Barnes | William Lawrence | 0.785 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Denise Rodriguez | Jeffrey Lewis | 0.78 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Sharon White | Mildred Spencer | 0.78 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Thomas Harrison | Phillip Carr | 0.78 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Timothy Garza | Peter Bryant | 0.775 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Rose Crawford | Eric Black | 0.775 | 0 | 0 | 0 | Candidate social/context link for review only.
+// Lawrence Warren | Gloria Owens | 0.775 | 0 | 0 | 0 | Candidate social/context link for review only.
 
 // ==================================================
-// QUERY 37
+// QUERY 47
 // ==================================================
-// Query 4.14 - Conservative write-back of supervised review-only social candidates.
+// Query 4.16 - Conservative write-back of supervised review-only social candidates.
 CALL {
+  CALL gds.model.list('social-family-lp-model')
+  YIELD modelInfo
+  WITH modelInfo.metrics.AUCPR.test AS testAUCPR
   CALL gds.beta.pipeline.linkPrediction.predict.stream(
-    'revisedKnowsContextGraph',
-    {modelName: 'revised-knows-lp-model', topN: 200}
+    'socialFamilyContextGraph',
+    {modelName: 'social-family-lp-model', topN: 200}
   )
   YIELD node1, node2, probability
-  WITH gds.util.asNode(node1) AS p1,
+  WITH testAUCPR,
+       gds.util.asNode(node1) AS p1,
        gds.util.asNode(node2) AS p2,
        probability
   WHERE p1:Person
@@ -1094,13 +1246,16 @@ CALL {
     AND elementId(p1) < elementId(p2)
     AND NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
   RETURN collect({p1: p1, p2: p2, probability: probability}) AS candidates,
+         testAUCPR,
          min(probability) AS lowestProbability,
          max(probability) AS highestProbability
 }
 WITH candidates, lowestProbability, highestProbability,
-     highestProbability - lowestProbability AS probabilityBand
+     highestProbability - lowestProbability AS probabilityBand,
+     testAUCPR
 WITH [candidate IN candidates
-      WHERE probabilityBand >= 0.01
+      WHERE testAUCPR >= 0.50
+        AND probabilityBand >= 0.01
         AND candidate.probability >= 0.55][0..25] AS writeCandidates
 CALL {
   WITH writeCandidates
@@ -1108,48 +1263,374 @@ CALL {
   WITH candidate.p1 AS p1,
        candidate.p2 AS p2,
        candidate.probability AS probability
-  MERGE (p1)-[r:PREDICTED_KNOWS_REVIEW]->(p2)
+  MERGE (p1)-[r:PREDICTED_SOCIAL_REVIEW]->(p2)
   SET r.probability = probability,
-      r.model = 'revised-knows-lp-model',
+      r.model = 'social-family-lp-model',
       r.note = 'Review-only predicted social/context link. Not evidence of crime.'
   RETURN count(r) AS writtenReviewLinks
 }
 RETURN writtenReviewLinks,
-       'Review-only PREDICTED_KNOWS_REVIEW relationships written only when scores were not flat.' AS writeBackReading;
+       'Review-only PREDICTED_SOCIAL_REVIEW relationships are written only when held-out AUCPR and probability spread both pass the gate.' AS writeBackReading;
 
-// RESULT 37
+// RESULT 47
 // --------------------------------------------------
 // writtenReviewLinks | writeBackReading
-// 0 | Review-only PREDICTED_KNOWS_REVIEW relationships written only when scores were not flat.
+// 25 | Review-only PREDICTED_SOCIAL_REVIEW relationships are written only when held-out AUCPR and probability spread both pass the gate.
 
 // ==================================================
-// QUERY 38
+// QUERY 48
 // ==================================================
-// Query 4.15 - GML decision table for the final demo.
-MATCH ()-[explainable:PREDICTED_KNOWS_EXPLAINABLE]->()
+// Query 4.17 - Remove temporary stored target after the in-memory model is trained.
+MATCH ()-[r:OBSERVED_SOCIAL_LINK_TMP]->()
+DELETE r;
+
+// RESULT 48
+// --------------------------------------------------
+// 
+// No rows returned
+
+// ==================================================
+// QUERY 49
+// ==================================================
+// Query 4.18 - GML decision table for the final demo.
+MATCH ()-[explainable:PREDICTED_SOCIAL_EXPLAINABLE]->()
 WITH count(explainable) AS explainableReviewLinks
-OPTIONAL MATCH ()-[supervised:PREDICTED_KNOWS_REVIEW]->()
+OPTIONAL MATCH ()-[supervised:PREDICTED_SOCIAL_REVIEW]->()
 RETURN explainableReviewLinks,
        count(supervised) AS supervisedReviewLinks,
        CASE
          WHEN explainableReviewLinks > 0 AND count(supervised) = 0
-         THEN 'Use explainable Common Neighbours and Adamic Adar candidates in the demo. Supervised write-back remains blocked because calibration is flat.'
+         THEN 'Use explainable Common Neighbours and Adamic Adar candidates in the demo. Supervised write-back remains blocked because held-out quality or calibration is too weak.'
          WHEN count(supervised) > 0
          THEN 'Both explainable and supervised candidates are available for review.'
          ELSE 'No candidate write-back should be shown.'
        END AS gmlDemoDecision;
 
-// RESULT 38
+// RESULT 49
 // --------------------------------------------------
 // explainableReviewLinks | supervisedReviewLinks | gmlDemoDecision
-// 4 | 0 | Use explainable Common Neighbours and Adamic Adar candidates in the demo. Supervised write-back remains blocked because calibration is flat.
+// 4 | 25 | Both explainable and supervised candidates are available for review.
 
 // ==================================================
-// QUERY 39
+// QUERY 50
 // ==================================================
-// SECTION 5: REVIEW PRIORITY WITHOUT AUTOMATED ACCUSATION
+// SECTION 5: SECONDARY ML AND UNSUPERVISED EXPERIMENTS
 
-// Query 5.1 - Review-priority people using observed graph context.
+// Query 5.1 - Project social graph for unsupervised embedding similarity.
+CALL gds.graph.project(
+  'socialEmbeddingGraph',
+  'Person',
+  {
+    KNOWS: {orientation: 'UNDIRECTED'},
+    KNOWS_SN: {orientation: 'UNDIRECTED'},
+    KNOWS_PHONE: {orientation: 'UNDIRECTED'},
+    KNOWS_LW: {orientation: 'UNDIRECTED'},
+    FAMILY_REL: {orientation: 'UNDIRECTED'}
+  }
+)
+YIELD graphName, nodeCount, relationshipCount
+RETURN graphName,
+       nodeCount,
+       relationshipCount,
+       'Used for unsupervised FastRP + kNN candidate discovery.' AS experimentReading;
+
+// RESULT 50
+// --------------------------------------------------
+// graphName | nodeCount | relationshipCount | experimentReading
+// socialEmbeddingGraph | 369 | 2360 | Used for unsupervised FastRP + kNN candidate discovery.
+
+// ==================================================
+// QUERY 51
+// ==================================================
+// Query 5.2 - Create FastRP embeddings for unsupervised social similarity.
+CALL gds.fastRP.mutate(
+  'socialEmbeddingGraph',
+  {
+    mutateProperty: 'embedding',
+    embeddingDimension: 32,
+    iterationWeights: [0.0, 1.0, 1.0],
+    randomSeed: 42
+  }
+)
+YIELD nodePropertiesWritten, mutateMillis
+RETURN nodePropertiesWritten,
+       mutateMillis;
+
+// RESULT 51
+// --------------------------------------------------
+// nodePropertiesWritten | mutateMillis
+// 369 | 2
+
+// ==================================================
+// QUERY 52
+// ==================================================
+// Query 5.3 - Unsupervised kNN social-similarity candidates.
+CALL gds.knn.stream(
+  'socialEmbeddingGraph',
+  {
+    nodeProperties: ['embedding'],
+    topK: 5,
+    similarityCutoff: 0.7,
+    randomSeed: 42,
+    concurrency: 1
+  }
+)
+YIELD node1, node2, similarity
+WITH gds.util.asNode(node1) AS p1,
+     gds.util.asNode(node2) AS p2,
+     similarity
+WHERE elementId(p1) < elementId(p2)
+  AND NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
+RETURN p1.name + ' ' + coalesce(p1.surname, '') AS personA,
+       p2.name + ' ' + coalesce(p2.surname, '') AS personB,
+       similarity,
+       'Unsupervised embedding candidate: structurally similar social context, review only.' AS reading
+ORDER BY similarity DESC, personA, personB
+LIMIT 25;
+
+// RESULT 52
+// --------------------------------------------------
+// personA | personB | similarity | reading
+// Daniel Moreno | Mary Peters | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Heather Howard | Jennifer Jacobs | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Heather Howard | Maria Rivera | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Jennifer Jacobs | Maria Rivera | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Joseph Rogers | Peter Burns | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Matthew Phillips | Justin Payne | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Nicholas Mason | Justin Payne | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Nicholas Mason | Matthew Phillips | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Raymond Williamson | Dennis Bradley | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Richard Hanson | Norma Jackson | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Sandra Payne | Philip Welch | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Todd Hamilton | Frances Sullivan | 1.0 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Anne Clark | Jerry Fernandez | 0.9786435961723328 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Nancy Hughes | Larry Turner | 0.9715005159378052 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Timothy Garza | Deborah Ford | 0.9669255018234253 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Edward Green | Kathleen Rogers | 0.9662777185440063 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Randy Edwards | Jennifer Murray | 0.9662728309631348 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Timothy Garza | Peter Bryant | 0.964415431022644 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Jose Green | Dennis Bradley | 0.9614294767379761 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Jose Green | Raymond Williamson | 0.9614294767379761 | Unsupervised embedding candidate: structurally similar social context, review only.
+// John Jacobs | Larry Turner | 0.9601535797119141 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Michael Mason | Lois Hernandez | 0.9583497643470764 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Randy Edwards | Lois Larson | 0.9580379724502563 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Louis Hughes | Ruby Reynolds | 0.9560292959213257 | Unsupervised embedding candidate: structurally similar social context, review only.
+// Lawrence Warren | Gloria Owens | 0.9510976076126099 | Unsupervised embedding candidate: structurally similar social context, review only.
+
+// ==================================================
+// QUERY 53
+// ==================================================
+// Query 5.4 - Project crime-context graph for node classification.
+CALL gds.graph.project(
+  'crimeClassGraph',
+  {
+    Crime: {properties: ['crimeTypeClass']},
+    Location: {},
+    Officer: {},
+    Vehicle: {},
+    Object: {}
+  },
+  {
+    OCCURRED_AT: {orientation: 'UNDIRECTED'},
+    INVESTIGATED_BY: {orientation: 'UNDIRECTED'},
+    INVOLVED_IN: {orientation: 'UNDIRECTED'}
+  }
+)
+YIELD graphName, nodeCount, relationshipCount
+RETURN graphName,
+       nodeCount,
+       relationshipCount,
+       'Secondary supervised task: predict broad crime type class from graph context.' AS experimentReading;
+
+// RESULT 53
+// --------------------------------------------------
+// graphName | nodeCount | relationshipCount | experimentReading
+// crimeClassGraph | 45673 | 117018 | Secondary supervised task: predict broad crime type class from graph context.
+
+// ==================================================
+// QUERY 54
+// ==================================================
+// Query 5.5 - Crime type class distribution.
+MATCH (c:Crime)
+WHERE c.crimeTypeClass IS NOT NULL
+RETURN c.crimeTypeClass AS crimeTypeClass,
+       c.type AS exampleCrimeType,
+       count(c) AS crimes
+ORDER BY crimes DESC;
+
+// RESULT 54
+// --------------------------------------------------
+// crimeTypeClass | exampleCrimeType | crimes
+// 12 | Violence and sexual offences | 8765
+// 7 | Public order | 4839
+// 2 | Criminal damage and arson | 3587
+// 1 | Burglary | 2807
+// 11 | Vehicle crime | 2598
+// 5 | Other theft | 2140
+// 9 | Shoplifting | 1427
+// 4 | Other crime | 651
+// 8 | Robbery | 541
+// 10 | Theft from the person | 423
+// 0 | Bicycle theft | 414
+// 3 | Drugs | 333
+// 6 | Possession of weapons | 236
+
+// ==================================================
+// QUERY 55
+// ==================================================
+// Query 5.6 - Create crime-class node-classification pipeline.
+CALL gds.beta.pipeline.nodeClassification.create('crime-class-pipeline')
+YIELD name
+RETURN name AS pipeline;
+
+// RESULT 55
+// --------------------------------------------------
+// pipeline
+// crime-class-pipeline
+
+// ==================================================
+// QUERY 56
+// ==================================================
+// Query 5.7 - Add FastRP embeddings for crime-class classification.
+CALL gds.beta.pipeline.nodeClassification.addNodeProperty(
+  'crime-class-pipeline',
+  'fastRP',
+  {
+    mutateProperty: 'embedding',
+    embeddingDimension: 32,
+    iterationWeights: [0.0, 1.0, 1.0],
+    randomSeed: 42
+  }
+)
+YIELD nodePropertySteps
+RETURN nodePropertySteps;
+
+// RESULT 56
+// --------------------------------------------------
+// nodePropertySteps
+// [{"name":"gds.fastRP.mutate","config":{"randomSeed":42,"contextRelationshipTypes":[],"iterationWeights":[0.0,1.0,1.0],"embeddingDimension":32,"contextNodeLabels":[],"mutateProperty":"embedding"}}]
+
+// ==================================================
+// QUERY 57
+// ==================================================
+// Query 5.8 - Select embedding feature.
+CALL gds.beta.pipeline.nodeClassification.selectFeatures(
+  'crime-class-pipeline',
+  ['embedding']
+)
+YIELD featureProperties
+RETURN featureProperties;
+
+// RESULT 57
+// --------------------------------------------------
+// featureProperties
+// ["embedding"]
+
+// ==================================================
+// QUERY 58
+// ==================================================
+// Query 5.9 - Configure crime-class split.
+CALL gds.beta.pipeline.nodeClassification.configureSplit(
+  'crime-class-pipeline',
+  {
+    testFraction: 0.20,
+    validationFolds: 2
+  }
+)
+YIELD splitConfig
+RETURN splitConfig;
+
+// RESULT 58
+// --------------------------------------------------
+// splitConfig
+// {"testFraction":0.2,"validationFolds":2}
+
+// ==================================================
+// QUERY 59
+// ==================================================
+// Query 5.10 - Add Logistic Regression for crime-class classification.
+CALL gds.beta.pipeline.nodeClassification.addLogisticRegression(
+  'crime-class-pipeline',
+  {
+    maxEpochs: 30,
+    learningRate: 0.01
+  }
+)
+YIELD parameterSpace
+RETURN parameterSpace;
+
+// RESULT 59
+// --------------------------------------------------
+// parameterSpace
+// {"MultilayerPerceptron":[],"RandomForest":[],"LogisticRegression":[{"maxEpochs":30,"minEpochs":1,"classWeights":[],"penalty":0.0,"patience":1,"methodName":"LogisticRegression","focusWeight":0.0,"batchSize":100,"tolerance":0.001,"learningRate":0.01}]}
+
+// ==================================================
+// QUERY 60
+// ==================================================
+// Query 5.11 - Train crime-class classifier.
+CALL gds.beta.pipeline.nodeClassification.train(
+  'crimeClassGraph',
+  {
+    pipeline: 'crime-class-pipeline',
+    modelName: 'crime-class-model',
+    targetNodeLabels: ['Crime'],
+    targetProperty: 'crimeTypeClass',
+    metrics: ['F1_WEIGHTED', 'ACCURACY'],
+    randomSeed: 42
+  }
+)
+YIELD modelInfo, trainMillis
+RETURN trainMillis,
+       modelInfo.metrics.F1_WEIGHTED.train.avg AS trainWeightedF1,
+       modelInfo.metrics.F1_WEIGHTED.validation.avg AS validationWeightedF1,
+       modelInfo.metrics.F1_WEIGHTED.test AS testWeightedF1,
+       modelInfo.metrics.ACCURACY.test AS testAccuracy,
+       modelInfo.bestParameters.methodName AS selectedModel,
+       CASE
+         WHEN modelInfo.metrics.F1_WEIGHTED.test >= 0.50 THEN 'Useful crime-type classifier.'
+         ELSE 'Weak classifier: graph structure alone does not recover crime type reliably.'
+       END AS classifierReading;
+
+// RESULT 60
+// --------------------------------------------------
+// trainMillis | trainWeightedF1 | validationWeightedF1 | testWeightedF1 | testAccuracy | selectedModel | classifierReading
+// 2465 | 0.14192116073487668 | 0.14192116073487668 | 0.14407914891941245 | 0.30957762 | LogisticRegression | Weak classifier: graph structure alone does not recover crime type reliably.
+
+// ==================================================
+// QUERY 61
+// ==================================================
+// Query 5.12 - ML strategy comparison table.
+MATCH ()-[explainable:PREDICTED_SOCIAL_EXPLAINABLE]->()
+WITH count(explainable) AS explainableLinks
+OPTIONAL MATCH ()-[supervised:PREDICTED_SOCIAL_REVIEW]->()
+WITH explainableLinks, count(supervised) AS supervisedLinks
+CALL gds.model.list('social-family-lp-model')
+YIELD modelInfo AS lpModelInfo
+WITH explainableLinks,
+     supervisedLinks,
+     lpModelInfo.metrics.AUCPR.test AS linkPredictionTestAUCPR,
+     lpModelInfo.bestParameters.methodName AS linkPredictionSelectedModel
+CALL gds.model.list('crime-class-model')
+YIELD modelInfo AS crimeModelInfo
+RETURN linkPredictionSelectedModel,
+       linkPredictionTestAUCPR,
+       supervisedLinks AS supervisedSocialWriteBackLinks,
+       explainableLinks AS explainableSocialWriteBackLinks,
+       crimeModelInfo.metrics.F1_WEIGHTED.test AS crimeClassTestWeightedF1,
+       crimeModelInfo.metrics.ACCURACY.test AS crimeClassTestAccuracy,
+       'Final ML stance: use supervised experiments as evidence, use explainable and unsupervised candidates for review, and do not overclaim weak held-out models.' AS strategyReading;
+
+// RESULT 61
+// --------------------------------------------------
+// linkPredictionSelectedModel | linkPredictionTestAUCPR | supervisedSocialWriteBackLinks | explainableSocialWriteBackLinks | crimeClassTestWeightedF1 | crimeClassTestAccuracy | strategyReading
+// RandomForest | 0.5578128982282821 | 25 | 4 | 0.14407914891941245 | 0.30957762 | Final ML stance: use supervised experiments as evidence, use explainable and unsupervised candidates for review, and do not overclaim weak held-out models.
+
+// ==================================================
+// QUERY 62
+// ==================================================
+// SECTION 6: REVIEW PRIORITY WITHOUT AUTOMATED ACCUSATION
+
+// Query 6.1 - Review-priority people using observed graph context.
 MATCH (p:Person)
 OPTIONAL MATCH (p)-[:PARTY_TO]-(own:Crime)
 WITH p, count(DISTINCT own) AS ownCrimeLinks
@@ -1189,7 +1670,7 @@ RETURN p.name + ' ' + coalesce(p.surname, '') AS person,
 ORDER BY reviewScore DESC, person
 LIMIT 25;
 
-// RESULT 39
+// RESULT 62
 // --------------------------------------------------
 // person | ownCrimeLinks | crimeLinkedNeighbours | neighbourCrimeLinks | crimesAtCurrentAddress | exampleCrimeLinkedNeighbours | reviewScore | reviewReading
 // Phillip Williamson | 5 | 5 | 17 | 1 | ["Brian Morales","Jessica Kelly","Raymond Walker","Kathleen Peters","Alan Ward"] | 53 | Observed PARTY_TO context. Human review only.
@@ -1219,9 +1700,9 @@ LIMIT 25;
 // Roger Brooks | 0 | 2 | 3 | 1 | ["Billy Moore","Lillian Martinez"] | 8 | Low-volume contextual signal. Human review only.
 
 // ==================================================
-// QUERY 40
+// QUERY 63
 // ==================================================
-// Query 5.2 - Review-priority social communities.
+// Query 6.2 - Review-priority social communities.
 MATCH (p:Person)
 WHERE p.revisedSocialCommunityId IS NOT NULL
 OPTIONAL MATCH (p)-[:PARTY_TO]-(c:Crime)
@@ -1255,7 +1736,7 @@ RETURN communityId,
 ORDER BY totalObservedPartyToLinks DESC, crimeLinkedPeoplePercent DESC
 LIMIT 15;
 
-// RESULT 40
+// RESULT 63
 // --------------------------------------------------
 // communityId | people | crimeLinkedPeople | totalObservedPartyToLinks | crimeLinkedPeoplePercent | crimeTypes | exampleMembers | communityReviewReading
 // 239 | 10 | 8 | 29 | 80.0 | ["Drugs","Vehicle crime","Robbery"] | ["William Dixon","Raymond Walker","Kathleen Peters","Diana Murray","Kathy Wheeler","Alan Ward","Jack Powell","Phillip Williamson"] | Community is a review-priority cluster, not an accusation.
@@ -1270,9 +1751,9 @@ LIMIT 15;
 // 249 | 32 | 1 | 1 | 3.1 | ["Vehicle crime"] | ["Mary Peters","Irene Austin","Harry Garrett","Eugene Ferguson","Douglas Cole","Wanda Webb","Kevin Hawkins","Jennifer Gray"] | Community is a review-priority cluster, not an accusation.
 
 // ==================================================
-// QUERY 41
+// QUERY 64
 // ==================================================
-// Query 5.3 - Final conclusion.
+// Query 6.3 - Final conclusion.
 MATCH (:Person)-[party:PARTY_TO]->(:Crime)
 WITH count(party) AS partyToLinks
 MATCH (:Crime)-[occurred:OCCURRED_AT]->(:Location)
@@ -1281,18 +1762,18 @@ MATCH (:Person)-[social:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]->(:Perso
 WITH partyToLinks, crimeLocationLinks, count(social) AS socialLinks
 MATCH (:Vehicle)-[vehicleCrime:INVOLVED_IN]->(:Crime)
 WITH partyToLinks, crimeLocationLinks, socialLinks, count(vehicleCrime) AS vehicleCrimeLinks
-OPTIONAL MATCH ()-[explainable:PREDICTED_KNOWS_EXPLAINABLE]->()
+OPTIONAL MATCH ()-[explainable:PREDICTED_SOCIAL_EXPLAINABLE]->()
 WITH partyToLinks, crimeLocationLinks, socialLinks, vehicleCrimeLinks, count(explainable) AS writtenExplainableReviewLinks
-OPTIONAL MATCH ()-[pred:PREDICTED_KNOWS_REVIEW]->()
+OPTIONAL MATCH ()-[pred:PREDICTED_SOCIAL_REVIEW]->()
 RETURN partyToLinks,
        crimeLocationLinks,
        socialLinks,
        vehicleCrimeLinks,
        writtenExplainableReviewLinks,
        count(pred) AS writtenPredictedSocialReviewLinks,
-       'Final graph ML conclusion: lead with hotspot and community analytics. Use explainable Common Neighbours and Adamic Adar candidates as the strongest GML demo output. Keep supervised KNOWS link prediction as a calibrated experiment and block write-back when scores are flat. Keep vehicle, address, phone, and PARTY_TO data as supporting context rather than automated accusation.' AS finalConclusion;
+       'Final graph ML conclusion: lead with hotspot and community analytics. Use supervised social-family link prediction, explainable Common Neighbours, Adamic Adar, and unsupervised embedding similarity as review candidates. Keep crime-class prediction as a negative model-comparison experiment. Keep vehicle, address, phone, and PARTY_TO data as supporting context rather than automated accusation.' AS finalConclusion;
 
-// RESULT 41
+// RESULT 64
 // --------------------------------------------------
 // partyToLinks | crimeLocationLinks | socialLinks | vehicleCrimeLinks | writtenExplainableReviewLinks | writtenPredictedSocialReviewLinks | finalConclusion
-// 55 | 28762 | 1180 | 978 | 4 | 0 | Final graph ML conclusion: lead with hotspot and community analytics. Use explainable Common Neighbours and Adamic Adar candidates as the strongest GML demo output. Keep supervised KNOWS link prediction as a calibrated experiment and block write-back when scores are flat. Keep vehicle, address, phone, and PARTY_TO data as supporting context rather than automated accusation.
+// 55 | 28762 | 1180 | 978 | 4 | 25 | Final graph ML conclusion: lead with hotspot and community analytics. Use supervised social-family link prediction, explainable Common Neighbours, Adamic Adar, and unsupervised embedding similarity as review candidates. Keep crime-class prediction as a negative model-comparison experiment. Keep vehicle, address, phone, and PARTY_TO data as supporting context rather than automated accusation.

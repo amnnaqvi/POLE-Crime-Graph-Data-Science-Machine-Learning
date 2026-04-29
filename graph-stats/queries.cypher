@@ -45,12 +45,14 @@ ORDER BY count DESC;
 
 // Query 1.2 - Relationship types and counts.
 MATCH ()-[r]->()
+WHERE NOT type(r) STARTS WITH 'PREDICTED_'
 RETURN type(r) AS relationshipType,
        count(r) AS count
 ORDER BY count DESC;
 
 // Query 1.3 - Full schema map: which labels each relationship connects.
 MATCH (a)-[r]->(b)
+WHERE NOT type(r) STARTS WITH 'PREDICTED_'
 RETURN labels(a) AS sourceLabels,
        type(r) AS relationshipType,
        labels(b) AS targetLabels,
@@ -96,12 +98,14 @@ ORDER BY incidents DESC, crimeType;
 MATCH (n)
 WITH count(n) AS totalNodes
 MATCH ()-[r]->()
+WHERE NOT type(r) STARTS WITH 'PREDICTED_'
 RETURN totalNodes,
        count(r) AS totalRelationships;
 
-// Query 1.11 - Degree summary across all stored nodes.
+// Query 1.11 - Degree summary across baseline graph relationships.
 MATCH (n)
 OPTIONAL MATCH (n)-[r]-()
+WHERE r IS NULL OR NOT type(r) STARTS WITH 'PREDICTED_'
 WITH n, count(r) AS degree
 RETURN avg(degree) AS averageDegree,
        min(degree) AS minimumDegree,
@@ -318,10 +322,71 @@ RETURN location,
 ORDER BY sameTypeCrimePairs DESC
 LIMIT 20;
 
+// Query 3.6 - Crime concentration across repeat locations.
+MATCH (c:Crime)-[:OCCURRED_AT]->(l:Location)
+WITH l.address AS location, count(c) AS incidents
+ORDER BY incidents DESC
+WITH collect({location: location, incidents: incidents}) AS rankedLocations,
+     sum(incidents) AS totalIncidents,
+     count(*) AS locationCount
+RETURN locationCount,
+       totalIncidents,
+       reduce(s = 0, x IN rankedLocations[0..10] | s + x.incidents) AS top10Incidents,
+       round(1000.0 * reduce(s = 0, x IN rankedLocations[0..10] | s + x.incidents) / totalIncidents) / 10.0 AS top10SharePercent,
+       reduce(s = 0, x IN rankedLocations[0..20] | s + x.incidents) AS top20Incidents,
+       round(1000.0 * reduce(s = 0, x IN rankedLocations[0..20] | s + x.incidents) / totalIncidents) / 10.0 AS top20SharePercent,
+       rankedLocations[0..5] AS topFiveLocations,
+       'Concentration shows whether place-based intervention can cover meaningful incident volume.' AS reading;
+
+// Query 3.7 - Outcome distribution for all crimes.
+MATCH (c:Crime)
+RETURN coalesce(c.last_outcome, 'Missing') AS outcome,
+       count(c) AS crimes,
+       round(1000.0 * count(c) / 28762) / 10.0 AS sharePercent
+ORDER BY crimes DESC
+LIMIT 20;
+
+// Query 3.8 - Crime type by unresolved / no-suspect outcome.
+MATCH (c:Crime)
+WITH c.type AS crimeType,
+     count(c) AS crimes,
+     sum(CASE
+           WHEN c.last_outcome STARTS WITH 'Investigation complete' OR c.last_outcome = 'Under investigation'
+           THEN 1 ELSE 0
+         END) AS unresolvedOrNoSuspect
+RETURN crimeType,
+       crimes,
+       unresolvedOrNoSuspect,
+       round(1000.0 * unresolvedOrNoSuspect / crimes) / 10.0 AS unresolvedOrNoSuspectPercent
+ORDER BY unresolvedOrNoSuspect DESC, unresolvedOrNoSuspectPercent DESC
+LIMIT 20;
+
+// Query 3.9 - Officer workload concentration.
+MATCH (c:Crime)-[:INVESTIGATED_BY]->(o:Officer)
+WITH o, count(c) AS caseload, count(DISTINCT c.type) AS crimeTypeBreadth
+RETURN avg(caseload) AS averageCaseload,
+       min(caseload) AS minimumCaseload,
+       max(caseload) AS maximumCaseload,
+       percentileCont(caseload, 0.5) AS medianCaseload,
+       percentileCont(caseload, 0.9) AS p90Caseload,
+       count(o) AS officers,
+       'Officer load is a second operational lens beyond hotspot places.' AS reading;
+
+// Query 3.10 - Highest caseload officers and their crime-type breadth.
+MATCH (c:Crime)-[:INVESTIGATED_BY]->(o:Officer)
+WITH o, count(c) AS caseload, count(DISTINCT c.type) AS crimeTypeBreadth, collect(DISTINCT c.type)[0..5] AS exampleTypes
+RETURN elementId(o) AS officerId,
+       caseload,
+       crimeTypeBreadth,
+       exampleTypes
+ORDER BY caseload DESC, crimeTypeBreadth DESC
+LIMIT 15;
+
 // SECTION 4: PERSON SOCIAL GRAPH GDS ANALYTICS
 
 // Query 4.1 - Person-Person relationship mix.
 MATCH (:Person)-[r]->(:Person)
+WHERE type(r) IN ['KNOWS', 'KNOWS_SN', 'KNOWS_PHONE', 'KNOWS_LW', 'FAMILY_REL']
 RETURN type(r) AS relationshipType,
        count(r) AS directedLinks,
        count(DISTINCT startNode(r)) AS distinctSources,
@@ -408,7 +473,34 @@ RETURN communityCount,
          ELSE 'Weak community structure'
        END AS communityReading;
 
-// Query 4.9 - Largest social communities.
+// Query 4.9 - Local clustering coefficient: how triadic the social graph is.
+CALL gds.localClusteringCoefficient.stats('graphStatsSocialGraph')
+YIELD averageClusteringCoefficient, nodeCount
+RETURN nodeCount,
+       averageClusteringCoefficient,
+       CASE
+         WHEN averageClusteringCoefficient >= 0.2 THEN 'Triadic closure is meaningful.'
+         ELSE 'Social links are relatively tree-like, so shared-neighbour evidence should be treated conservatively.'
+       END AS clusteringReading;
+
+// Query 4.10 - K-core: structurally embedded people.
+CALL gds.kcore.stream('graphStatsSocialGraph')
+YIELD nodeId, coreValue
+WITH gds.util.asNode(nodeId) AS p, coreValue
+RETURN p.name + ' ' + coalesce(p.surname, '') AS person,
+       coreValue
+ORDER BY coreValue DESC, person
+LIMIT 20;
+
+// Query 4.11 - Articulation points: people whose removal disconnects social paths.
+CALL gds.articulationPoints.stream('graphStatsSocialGraph')
+YIELD nodeId
+WITH gds.util.asNode(nodeId) AS p
+RETURN p.name + ' ' + coalesce(p.surname, '') AS articulationPerson
+ORDER BY articulationPerson
+LIMIT 25;
+
+// Query 4.12 - Largest social communities.
 MATCH (p:Person)
 WHERE p.revisedSocialCommunityId IS NOT NULL
 WITH p.revisedSocialCommunityId AS communityId,
@@ -420,7 +512,7 @@ RETURN communityId,
 ORDER BY people DESC, communityId
 LIMIT 15;
 
-// Query 4.10 - Social communities with observed crime context.
+// Query 4.13 - Social communities with observed crime context.
 MATCH (p:Person)
 WHERE p.revisedSocialCommunityId IS NOT NULL
 OPTIONAL MATCH (p)-[:PARTY_TO]-(c:Crime)
@@ -454,7 +546,7 @@ RETURN communityId,
 ORDER BY totalObservedPartyToLinks DESC, crimeLinkedPeoplePercent DESC
 LIMIT 15;
 
-// Query 4.11 - Weakly connected components on the social graph.
+// Query 4.14 - Weakly connected components on the social graph.
 CALL gds.wcc.write(
     'graphStatsSocialGraph',
     {writeProperty: 'revisedSocialComponentId'}
@@ -463,7 +555,7 @@ YIELD componentCount, componentDistribution
 RETURN componentCount,
        componentDistribution;
 
-// Query 4.12 - Social component size distribution.
+// Query 4.15 - Social component size distribution.
 MATCH (p:Person)
 WHERE p.revisedSocialComponentId IS NOT NULL
 RETURN p.revisedSocialComponentId AS componentId,
@@ -471,7 +563,7 @@ RETURN p.revisedSocialComponentId AS componentId,
 ORDER BY people DESC
 LIMIT 15;
 
-// Query 4.13 - Example shortest path between two people.
+// Query 4.16 - Example shortest path between two people.
 MATCH (a:Person {name: 'Todd'})
 WITH a LIMIT 1
 MATCH (b:Person {name: 'Rachel'})
@@ -548,6 +640,31 @@ RETURN p.name + ' ' + coalesce(p.surname, '') AS person,
        callCount
 ORDER BY callCount DESC, person
 LIMIT 20;
+
+// Query 5.8 - Phone-call derived Person-Person communication pairs.
+MATCH (p1:Person)-[:HAS_PHONE]->(phone1:Phone)<-[:CALLER|CALLED]-(call:PhoneCall)-[:CALLER|CALLED]->(phone2:Phone)<-[:HAS_PHONE]-(p2:Person)
+WHERE elementId(p1) < elementId(p2)
+WITH p1, p2, count(DISTINCT call) AS calls
+RETURN p1.name + ' ' + coalesce(p1.surname, '') AS personA,
+       p2.name + ' ' + coalesce(p2.surname, '') AS personB,
+       calls,
+       CASE
+         WHEN (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
+         THEN 'Already represented in social graph'
+         ELSE 'Communication-derived candidate edge'
+       END AS communicationReading
+ORDER BY calls DESC, personA, personB
+LIMIT 25;
+
+// Query 5.9 - How much phone communication is already covered by social edges?
+MATCH (p1:Person)-[:HAS_PHONE]->(phone1:Phone)<-[:CALLER|CALLED]-(call:PhoneCall)-[:CALLER|CALLED]->(phone2:Phone)<-[:HAS_PHONE]-(p2:Person)
+WHERE elementId(p1) < elementId(p2)
+WITH DISTINCT p1, p2
+RETURN count(*) AS communicationPairs,
+       sum(CASE WHEN (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2) THEN 1 ELSE 0 END) AS alreadySocialPairs,
+       sum(CASE WHEN NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2) THEN 1 ELSE 0 END) AS newCommunicationCandidatePairs,
+       round(1000.0 * sum(CASE WHEN (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2) THEN 1 ELSE 0 END) / count(*)) / 10.0 AS socialCoveragePercent,
+       'Phone calls provide an independent communication layer for candidate social links.' AS reading;
 
 // SECTION 6: EXPLAINABLE GML-READY SIGNALS
 
@@ -672,7 +789,7 @@ ORDER BY areaIncidents DESC, communityResidents DESC
 LIMIT 25;
 
 // Query 6.7 - Final graph ML feature recommendation.
-RETURN 'Use Crime-Location and Area profiles as the main demo evidence. Use social graph centrality and Louvain as the main GDS result. Use Common Neighbours and Adamic Adar as explainable Person-Person link prediction baselines. Keep supervised KNOWS link prediction in graph ML, but gate write-back if probabilities are flat. Keep PARTY_TO only as observed context.' AS m3FeatureRecommendation;
+RETURN 'Use Crime-Location and Area profiles as the main demo evidence. Use social graph centrality and Louvain as the main GDS result. Use supervised social-family link prediction plus Common Neighbours, Adamic Adar, and embedding similarity as review-only Person-Person prediction outputs. Keep PARTY_TO only as observed context.' AS m3FeatureRecommendation;
 
 // SECTION 7: FINAL GRAPH STATS SUMMARY
 

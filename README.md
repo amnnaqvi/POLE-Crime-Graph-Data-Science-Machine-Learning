@@ -113,12 +113,19 @@ The runner executes each Cypher statement and writes the result below the query.
 
 - Full graph: 61,521 nodes and 105,840 relationships.
 - Strongest link family: `Crime -> Location` with 28,762 `OCCURRED_AT` links.
+- Top 10 repeat locations cover 3,349 incidents, or 11.6% of all crimes.
+- Investigation outcome analysis: 17,087 crimes, or 59.4%, have no suspect identified.
+- Officer workload: 1,000 officers, average caseload 28.76, maximum caseload 50.
 - Social graph: 1,180 person-person links.
 - Louvain community detection: 41 communities, modularity 0.6710.
+- Social structure diagnostics: average local clustering coefficient 0.1611 and maximum k-core 8.
+- Phone-call layer: 118 person-person communication pairs, all already covered by social edges.
 - `Person -> Crime` / `PARTY_TO`: only 55 links, 0.0005% positive class.
-- Supervised `KNOWS` link prediction: test AUCPR 0.5942.
-- Supervised model write-back: 0 links, because live probabilities were too flat.
-- Explainable GML write-back: 4 review-only `PREDICTED_KNOWS_EXPLAINABLE` links.
+- Supervised social-family link prediction: GDS compared Logistic Regression and Random Forest with FastRP + Node2Vec features; Random Forest reached 0.5578 test AUCPR in the final pipeline.
+- Unsupervised social similarity: FastRP + kNN produces review-only structurally similar person pairs.
+- Crime-type node classification: FastRP + Logistic Regression gives weak test weighted F1 0.1441, showing graph structure alone does not recover crime type reliably.
+- Supervised model write-back: 25 review-only candidate social links, because held-out AUCPR and probability spread passed the review gate.
+- Explainable GML write-back: 4 review-only `PREDICTED_SOCIAL_EXPLAINABLE` links.
 
 These results are meant to support investigative review and graph-analysis discussion, not automated decisions about individuals.
 
@@ -129,9 +136,11 @@ The final interpretation focuses on POLE investigative analytics:
 1. Graph model and database scale.
 2. Link viability audit showing why `PARTY_TO` is not the main target.
 3. Hotspot and place crime-type profiles.
-4. Louvain social communities and crime-context concentration.
-5. Review-priority people, framed as human-review context.
-6. Supervised `KNOWS` link prediction with a calibration gate.
-7. Explainable Common Neighbours and Adamic Adar social-link candidates.
+4. Outcomes, officer workload, communication coverage, and structural social diagnostics.
+5. Louvain social communities and crime-context concentration.
+6. Review-priority people, framed as human-review context.
+7. Supervised social-family link prediction with model comparison and a held-out-quality/calibration gate.
+8. Unsupervised FastRP + kNN similarity and explainable Common Neighbours / Adamic Adar social-link candidates.
+9. Secondary crime-type node classification, reported honestly as weak evidence.
 
 The project does not claim that the model can identify who committed a crime. The stronger result is a graph workflow for connected investigation context, with clear limits on what should and should not be predicted.
