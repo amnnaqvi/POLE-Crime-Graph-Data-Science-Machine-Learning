@@ -271,16 +271,16 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
   \small
   \begin{columns}[T]
     \column{0.48\textwidth}
-      \textbf{Crime concentration at a place}\\[4pt]
+      \textbf{Repeat-location concentration}\\[4pt]
       \begin{tabular}{lr}
         \toprule
-        \textbf{Metric} & \textbf{Value} \\
+        \textbf{Query result} & \textbf{Value} \\
         \midrule
-        Crime locations & 12,401 \\
-        Total incidents & 28,762 \\
-        Top 10 incidents & 3,349 \\
-        Top 10 share & 11.6\% \\
-        Top 20 share & 13.3\% \\
+        Locations with crimes & 12,401 \\
+        Crimes with locations & 28,762 \\
+        Crimes at top 10 locations & 3,349 \\
+        Share at top 10 locations & 11.6\% \\
+        Share at top 20 locations & 13.3\% \\
         \bottomrule
       \end{tabular}
 
@@ -300,7 +300,7 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
   \end{columns}
 
   \vspace{0.5cm}
-  Hotspots matter, but outcomes show why this is a triage problem: most incidents either have no suspect or cannot be prosecuted.
+  Concentration is queried by grouping \tinycode{Crime -> OCCURRED\_AT -> Location}, counting incidents per location, sorting by count, and summing the top locations.
 \end{frame}
 
 \begin{frame}{Operational Difficulty}
@@ -386,8 +386,8 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
         \textbf{Metric} & \textbf{Value} \\
         \midrule
         Average clustering coefficient & 0.1611 \\
-        Weak components & 26 \\
-        Largest component & 342 \\
+        Weakly connected groups & 26 \\
+        People in largest group & 342 \\
         Maximum k-core & 8 \\
         Phone communication pairs & 118 \\
         Phone pairs already social & 100.0\% \\
@@ -410,30 +410,33 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
   \end{columns}
 
   \vspace{0.2cm}
-  Clustering coefficient measures how often a person's neighbours also know each other. A weak component is a connected island if we ignore relationship direction. K-core shows who remains after loosely connected people are peeled away.
+  Clustering coefficient measures how often a person's neighbours also know each other. Weakly connected groups are social islands after ignoring relationship direction; the largest one contains 342 of 369 people. K-core repeatedly removes low-degree people, so the maximum k-core of 8 points to the densest inner social layer.
 \end{frame}
 
 \begin{frame}{Review-Priority People}
   \small
+  Formula: \tinycode{score = 5*own crime links + 2*crime-linked neighbours + neighbour crime links + address flag}.
+
+  \vspace{0.12cm}
   \begin{table}
     \centering
-    \begin{tabular}{lrrrr}
+    \begin{tabular}{lrrrrr}
       \toprule
-      \textbf{Person} & \textbf{Own links} & \textbf{Crime neighbours} & \textbf{Address crimes} & \textbf{Score} \\
+      \textbf{Person} & \textbf{Own} & \textbf{Crime nbrs} & \textbf{Nbr crimes} & \textbf{Addr} & \textbf{Score} \\
       \midrule
-      Phillip Williamson & 5 & 5 & 1 & 53 \\
-      Brian Morales & 4 & 4 & 1 & 46 \\
-      Jessica Kelly & 5 & 3 & 1 & 44 \\
-      Alan Ward & 3 & 4 & 1 & 40 \\
-      Kathleen Peters & 3 & 4 & 2 & 37 \\
-      Jack Powell & 4 & 2 & 0 & 31 \\
-      Anne Freeman & 0 & 8 & 0 & 26 \\
+      Phillip Williamson & 5 & 5 & 17 & 1 & 53 \\
+      Brian Morales & 4 & 4 & 17 & 1 & 46 \\
+      Jessica Kelly & 5 & 3 & 12 & 1 & 44 \\
+      Alan Ward & 3 & 4 & 16 & 1 & 40 \\
+      Kathleen Peters & 3 & 4 & 13 & 1 & 37 \\
+      Jack Powell & 4 & 2 & 7 & 0 & 31 \\
+      Diana Murray & 3 & 2 & 8 & 1 & 28 \\
       \bottomrule
     \end{tabular}
   \end{table}
 
   \vspace{0.1cm}
-  Review score combines observed links, crime-linked neighbours, neighbour links, and address context. It is only a triage score; living near crime does not imply guilt.
+  Own links are observed \tinycode{PARTY\_TO} links. Crime nbrs are socially connected people who have observed crime links. Nbr crimes counts those neighbours' linked crimes. Addr is 1 if the person's current address has crime context. This is only a triage score, not guilt evidence.
 \end{frame}
 
 \begin{frame}{Rejected Strategy: Person-Crime Prediction}
@@ -458,7 +461,7 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
 \end{frame}
 
 \begin{frame}{Graph ML Design}
-  \textbf{Final GML target:} link prediction (LP), meaning prediction of missing relationships between existing nodes. In this project, the target is missing social-family links for review, using the wider POLE graph as context.
+  \textbf{Final GML target:} Link prediction (LP), meaning prediction of missing relationships between existing nodes. Here, the model scores pairs of people who do not already have a recorded social-family link. It uses the surrounding POLE context, such as shared contacts, addresses, phones, and crime-location structure, to suggest possible missing associations for human review only.
 
   \vspace{0.25cm}
   \begin{columns}[T]
@@ -480,9 +483,7 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
   \end{columns}
 \end{frame}
 
-\begin{frame}{Supervised GDS Pipeline}
-  \small
-  Graph Data Science (GDS) is Neo4j's graph algorithm and graph ML library. A pipeline is the ordered workflow: project graph, create features, train model, evaluate, then score candidates.
+\begin{frame}{Supervised GDS Pipeline: Graph and Features}
 
   \vspace{0.12cm}
   \begin{table}
@@ -495,6 +496,22 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
       Target & Unified undirected social-family Person--Person pairs derived from raw social-family relationship evidence. Supervised means the model learns from examples of known links. \\
       Embedding & FastRP and Node2Vec turn each node's graph neighbourhood into numeric vectors the model can learn from. \\
       Pair feature & Hadamard product combines two node vectors element-by-element into one pair feature. \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+\end{frame}
+
+\begin{frame}{Supervised GDS Pipeline: Model and Gate}
+  \small
+  The model is evaluated on held-out links, then used only to rank review candidates.
+
+  \vspace{0.12cm}
+  \begin{table}
+    \centering
+    \begin{tabular}{p{0.28\textwidth}p{0.68\textwidth}}
+      \toprule
+      \textbf{Stage} & \textbf{Choice} \\
+      \midrule
       Model choice & Logistic Regression was tested as a simple baseline; the final pipeline keeps Random Forest (RF), a tree-ensemble model, because its scores had usable separation. \\
       Evaluation & GDS reports train, validation, and held-out test AUCPR. Held-out test means data kept aside until final evaluation. \\
       Metric & AUCPR means area under the precision-recall curve. Precision asks how many suggested links are right; recall asks how many true links are found. \\
@@ -558,23 +575,6 @@ ORDER BY probability DESC;
   Diagnostic comparison: AUCPR, F1, and accuracy answer different questions: ranking rare links, balancing class performance, and counting correct labels.
 \end{frame}
 
-\begin{frame}{Main Metrics}
-  \small
-  \begin{table}
-    \centering
-    \begin{tabular}{p{0.22\textwidth}p{0.28\textwidth}p{0.36\textwidth}}
-      \toprule
-      \textbf{Metric} & \textbf{Plain meaning} & \textbf{How we use it} \\
-      \midrule
-      AUCPR & Can the model rank rare true links above non-links? & Main score for social-family link prediction. \\
-      Weighted F1 & Does the classifier work across many classes? & Weighted means bigger crime classes count more in the average. Low score means not deployed. \\
-      Louvain modularity & Are communities actually separated? & 0.6710 supports community-level analysis. \\
-      k-core & Who sits deep inside a connected group? & Social-structure diagnostic, not accusation. \\
-      Probability spread & Are predicted scores separated or flat? & Gate before write-back. \\
-      \bottomrule
-    \end{tabular}
-  \end{table}
-\end{frame}
 
 \begin{frame}{Supervised Link Prediction Metrics}
   \begin{columns}[T]
@@ -864,15 +864,6 @@ ORDER BY probability DESC;
 \begin{frame}{Final Evidence Scorecard}
   \centering
   \includegraphics[width=0.92\textwidth,height=0.78\textheight,keepaspectratio]{09_project_scorecard.png}
-\end{frame}
-
-\begin{frame}{Final Takeaway}
-  \begin{block}{Project conclusion}
-    The strongest final outcome is POLE investigative analytics: hotspot locations, community concentration, review-priority people, and explainable social-link candidates. Direct Person-Crime prediction was tested, but the evidence base was too sparse for automated write-back.
-  \end{block}
-
-  \vspace{0.25cm}
-  \textbf{Final claim:} The project builds a graph workflow that selects credible targets, explains its outputs, and avoids trusting weak models.
 \end{frame}
 
 \begin{frame}
