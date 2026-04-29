@@ -70,7 +70,6 @@
 
 % Meta
 \title{POLE Crime Investigation with Graph Data Science}
-\subtitle{From sparse prediction targets to explainable investigative prioritization}
 \author{Amn Naqvi \quad\&\quad Rayyan Shah}
 \institute{CS343 Graph Data Science \quad|\quad Project Group 4}
 \date{Spring 2026}
@@ -81,77 +80,28 @@
   \titlepage
 \end{frame}
 
-\begin{frame}{Demo Roadmap}
-  \begin{enumerate}
-    \item Project problem and scope.
-    \item POLE graph model and database size.
-    \item Graph stats results: structure, relationship coverage, and analytics.
-    \item Link viability audit: which relationships are actually strong.
-    \item Graph ML pipeline: supervised and explainable link prediction.
-    \item Metrics, calibration, course deliverables, and final demo conclusion.
-  \end{enumerate}
-\end{frame}
-
 \begin{frame}{Problem Statement}
-  \textbf{Question:} How can a POLE crime graph support investigative review without overstating what the data can prove?
+  How can a POLE crime graph help investigators decide where to look next, without pretending the model can prove guilt?
 
   \vspace{0.3cm}
   \begin{columns}[T]
     \column{0.48\textwidth}
-      \textbf{Original temptation}
+      \textbf{Where we started}
       \begin{itemize}
         \item Predict \tinycode{Person -> Crime}.
-        \item Treat \tinycode{PARTY\_TO} as the main ML target.
-        \item Write back likely crime links.
+        \item Treat \tinycode{PARTY\_TO} as the main machine-learning (ML) target.
+        \item Write back likely person-crime links: save model guesses as new graph relationships.
       \end{itemize}
 
     \column{0.48\textwidth}
-      \textbf{Final research framing}
+      \textbf{Where the evidence led}
       \begin{itemize}
         \item Find hotspots and repeat place patterns.
         \item Detect social communities and review-priority people.
-        \item Use GML for review-only social link candidates.
-        \item Block automated person-crime write-back when the data does not justify it.
+        \item Use graph machine learning (GML) for review-only social-link candidates.
+        \item Do not create automated person-crime claims.
       \end{itemize}
   \end{columns}
-\end{frame}
-
-\begin{frame}{Project Scope from the Brief}
-  The course brief asks for graph model design, graph statistics, graph analytics, and graph machine learning.
-
-  \vspace{0.25cm}
-  \begin{table}
-    \centering\small
-    \begin{tabular}{p{0.24\textwidth}p{0.62\textwidth}}
-      \toprule
-      \textbf{Requirement} & \textbf{What this project demonstrates} \\
-      \midrule
-      Graph model/loading & POLE graph restored from Neo4j dump with people, crimes, locations, vehicles, phones, officers, areas. \\
-      Graph statistics & Node counts, relationship counts, degree distribution, isolated nodes, target density. \\
-      Graph analytics & Hotspots, crime-type profiles, Louvain communities, WCC, k-core structure, and contextual review scores. \\
-      Graph ML & GDS social-family link prediction, explainable Common Neighbours, Adamic Adar, kNN similarity, and crime-type classification. \\
-      Critical analysis & Person-Crime prediction tested and rejected as a main deployment target because labels are sparse and sensitive. \\
-      \bottomrule
-    \end{tabular}
-  \end{table}
-\end{frame}
-
-\begin{frame}{Final Demo Alignment}
-  \small
-  \begin{table}
-    \centering
-    \begin{tabular}{p{0.28\textwidth}p{0.56\textwidth}}
-      \toprule
-      \textbf{Demo expectation} & \textbf{What we will show live} \\
-      \midrule
-      Graph model and database & POLE schema, node labels, relationship types, and graph size: 61,521 nodes and 105,840 relationships. \\
-      Key analytics and queries & Link viability audit, hotspot locations, dominant crime-type profiles, Louvain communities, k-core/WCC structure, and review-priority context. \\
-      GML pipeline and results & FastRP + Node2Vec + Logistic Regression/Random Forest social-family link prediction, AUCPR metrics, deployment gate, and explainable social-link candidates. \\
-      Comparative insight & Graph methods expose paths, communities, and shared neighbours; direct person-crime prediction is rejected because \tinycode{PARTY\_TO} has only 55 labels. \\
-      Responsible interpretation & Every person-level output is review-only. No automated crime claim is written back. \\
-      \bottomrule
-    \end{tabular}
-  \end{table}
 \end{frame}
 
 \begin{frame}{POLE Graph Model}
@@ -168,12 +118,12 @@
       \end{center}
 
     \column{0.44\textwidth}
-      \textbf{Core idea}
+      \textbf{How we read the model}
       \begin{itemize}
-        \item Persons, Objects, Locations, and Events are not isolated tables.
-        \item Crimes connect to places.
-        \item People connect through social, address, phone, and observed crime context.
-        \item Graph paths give explanations that flat tables hide.
+        \item POLE links people, places, objects, and events in one graph.
+        \item The strongest evidence surface is place-based: every crime has a location.
+        \item Person-level links are useful, but they need careful interpretation.
+        \item Paths make the reasoning explainable instead of just returning a score.
       \end{itemize}
   \end{columns}
 \end{frame}
@@ -181,7 +131,7 @@
 \begin{frame}{Database Snapshot}
   \begin{columns}[T]
     \column{0.47\textwidth}
-      \textbf{Overall graph}\\[4pt]
+      \textbf{Scale}\\[4pt]
       \small
       \begin{tabular}{lr}
         \toprule
@@ -189,32 +139,29 @@
         \midrule
         Total nodes & 61,521 \\
         Total relationships & 105,840 \\
-        Average degree & 3.4408 \\
-        Maximum degree & 1,321 \\
-        Isolated persons & 1 \\
+        Crime nodes & 28,762 \\
+        Person nodes & 369 \\
         \bottomrule
       \end{tabular}
 
     \column{0.50\textwidth}
-      \textbf{Important labels}\\[4pt]
+      \textbf{Most important link surfaces}\\[4pt]
       \small
       \begin{tabular}{lr}
         \toprule
-        \textbf{Label} & \textbf{Count} \\
+        \textbf{Surface} & \textbf{Links} \\
         \midrule
-        Crime & 28,762 \\
-        Location & 14,904 \\
-        PostCode & 14,196 \\
-        Officer & 1,000 \\
-        Vehicle & 1,000 \\
-        Person & 369 \\
-        Object & 7 \\
+        Crime to Location & 28,762 \\
+        Crime to Officer & 28,762 \\
+        Person social-family & 1,180 \\
+        Vehicle to Crime & 978 \\
+        Person to Crime & 55 \\
         \bottomrule
       \end{tabular}
   \end{columns}
 \end{frame}
 
-\begin{frame}{Visual Snapshot: Graph Scale}
+\begin{frame}{Graph Scale}
   \begin{columns}[T]
     \column{0.49\textwidth}
       \centering
@@ -227,7 +174,7 @@
   \vspace{0.1cm}
 \end{frame}
 
-\begin{frame}{Link Viability Audit}
+\begin{frame}{Why the Target Changed}
   \small
   \begin{table}
     \centering
@@ -235,19 +182,35 @@
       \toprule
       \textbf{Link family} & \textbf{Links} & \textbf{Final reading} \\
       \midrule
-      Crime $\rightarrow$ Location & 28,762 & Strongest signal: complete crime coverage and clear hotspot interpretation. \\
-      Person $\rightarrow$ Person & 1,180 raw links & Strong GDS surface for communities; collapsed to 586 unique undirected social-family pairs for supervised link prediction. \\
-      PhoneCall $\rightarrow$ Phone & 1,068 & Useful context, but not the main target. \\
-      Vehicle $\rightarrow$ Crime & 978 & Useful context; mostly one-off vehicle-crime links. \\
-      Person $\rightarrow$ Location & 368 & Address exposure context, not proof. \\
-      Person $\rightarrow$ Crime & 55 & Too sparse and sensitive to carry the main prediction task. \\
-      Object $\rightarrow$ Crime & 7 & Too small for meaningful modelling. \\
+      Crime $\rightarrow$ Location & 28,762 & Best for hotspot analysis because every crime has a place. \\
+      Person $\rightarrow$ Person & 1,180 raw links & Best for communities and social-link prediction. \\
+      Vehicle $\rightarrow$ Crime & 978 & Useful supporting context. \\
+      Person $\rightarrow$ Location & 368 & Useful exposure context, not proof. \\
+      Person $\rightarrow$ Crime & 55 & Too sparse and sensitive for the main ML target. \\
       \bottomrule
     \end{tabular}
   \end{table}
 \end{frame}
 
-\begin{frame}{Graph Stats Result: Hotspot Analytics}
+\begin{frame}[fragile]{Key Stats Query}
+  \small
+  This query is the turning point of the project: it checks whether person-crime prediction has enough labels to be fair or useful.
+
+  \vspace{0.2cm}
+  \begin{verbatim}
+MATCH (p:Person), (c:Crime)
+WITH count(DISTINCT p) AS persons, count(DISTINCT c) AS crimes
+MATCH (:Person)-[r:PARTY_TO]->(:Crime)
+RETURN persons, crimes, count(r) AS observedPartyTo,
+       persons * crimes AS possiblePairs,
+       100.0 * count(r) / (persons * crimes) AS positivePercent;
+  \end{verbatim}
+
+  \vspace{0.1cm}
+  Result: only 55 observed \tinycode{PARTY\_TO} links out of 10,613,178 possible pairs, or 0.0005\%.
+\end{frame}
+
+\begin{frame}{Hotspot Analytics}
   \small
   \begin{table}
     \centering
@@ -267,10 +230,10 @@
   \end{table}
 
   \vspace{0.15cm}
-  \textbf{Demo query:} \tinycode{MATCH (c:Crime)-[:OCCURRED\_AT]->(l:Location) RETURN l.address, count(c)}
+  These are not predictions; they are repeat-place patterns directly counted from the graph.
 \end{frame}
 
-\begin{frame}{Visual Snapshot: Hotspots and Link Viability}
+\begin{frame}{Hotspots and Link Viability}
   \begin{columns}[T]
     \column{0.49\textwidth}
       \centering
@@ -282,7 +245,7 @@
   \end{columns}
 \end{frame}
 
-\begin{frame}{Graph Stats Result: Specific Place Profiles}
+\begin{frame}{Crime-Location Patterns}
   \small
   \begin{table}
     \centering
@@ -301,14 +264,14 @@
   \end{table}
 
   \vspace{0.1cm}
-  This is a better-supported demo claim than individual-level prediction: it is historical, explainable, and directly backed by 28,762 crime-location links.
+  Directly backed by 28,762 crime-location links, so it's more credible than individual-level links.
 \end{frame}
 
-\begin{frame}{Graph Stats Result: Concentration and Outcomes}
+\begin{frame}{Crime-Location Results}
   \small
   \begin{columns}[T]
     \column{0.48\textwidth}
-      \textbf{Place concentration}\\[4pt]
+      \textbf{Crime concentration at a place}\\[4pt]
       \begin{tabular}{lr}
         \toprule
         \textbf{Metric} & \textbf{Value} \\
@@ -322,7 +285,7 @@
       \end{tabular}
 
     \column{0.48\textwidth}
-      \textbf{Outcome signal}\\[4pt]
+      \textbf{Outcomes for Crime-Location Links}\\[4pt]
       \begin{tabular}{lr}
         \toprule
         \textbf{Outcome} & \textbf{Share} \\
@@ -336,11 +299,11 @@
       \end{tabular}
   \end{columns}
 
-  \vspace{0.2cm}
-  This gives the report a stronger operational argument: hotspots matter, but outcome difficulty is also central to investigation prioritization.
+  \vspace{0.5cm}
+  Hotspots matter, but outcomes show why this is a triage problem: most incidents either have no suspect or cannot be prosecuted.
 \end{frame}
 
-\begin{frame}{Graph Stats Result: Operational Difficulty}
+\begin{frame}{Operational Difficulty}
   \small
   \begin{table}
     \centering
@@ -360,10 +323,10 @@
   \end{table}
 
   \vspace{0.1cm}
-  These are not ML labels for guilt. They are workload and investigation-difficulty signals that explain why graph triage is useful.
+  This is workload evidence, not guilt evidence. It explains why a graph workflow should help prioritize review rather than automate decisions.
 \end{frame}
 
-\begin{frame}{Visual Snapshot: Outcomes and Difficulty}
+\begin{frame}{Outcomes and Difficulty}
   \begin{columns}[T]
     \column{0.49\textwidth}
       \centering
@@ -375,7 +338,7 @@
   \end{columns}
 \end{frame}
 
-\begin{frame}{Graph Stats Result: Social Communities}
+\begin{frame}{Social Communities}
   \begin{columns}[T]
     \column{0.42\textwidth}
       \textbf{Louvain on person social graph}\\[4pt]
@@ -398,7 +361,7 @@
       \small
       \begin{tabular}{lrrr}
         \toprule
-        \textbf{Community} & \textbf{People} & \textbf{Crime-linked} & \textbf{Share} \\
+        \textbf{Louvain ID} & \textbf{People} & \textbf{Crime-linked} & \textbf{Share} \\
         \midrule
         239 & 10 & 8 & 80.0\% \\
         237 & 22 & 6 & 27.3\% \\
@@ -410,10 +373,10 @@
   \end{columns}
 
   \vspace{0.2cm}
-  Reading: Louvain groups people into dense social clusters. Modularity 0.6710 means the social graph has strong community structure, so community-level review is more meaningful than isolated person-crime prediction.
+  Louvain is a community-detection algorithm: it groups people who are more connected to each other than to the rest of the graph. Modularity measures how clean that split is; 0.6710 is strong enough to support community-level review.
 \end{frame}
 
-\begin{frame}{Graph Stats Result: Social Structure Diagnostics}
+\begin{frame}{Social Structure Diagnostics}
   \small
   \begin{columns}[T]
     \column{0.48\textwidth}
@@ -447,10 +410,10 @@
   \end{columns}
 
   \vspace{0.2cm}
-  Reading: k-core finds people embedded in tightly connected groups, WCC shows most people sit in one large social component, and phone-call overlap validates that the social layer is not random.
+  Clustering coefficient measures how often a person's neighbours also know each other. A weak component is a connected island if we ignore relationship direction. K-core shows who remains after loosely connected people are peeled away.
 \end{frame}
 
-\begin{frame}{Graph Stats Result: Review-Priority People}
+\begin{frame}{Review-Priority People}
   \small
   \begin{table}
     \centering
@@ -470,10 +433,10 @@
   \end{table}
 
   \vspace{0.1cm}
-  Score = own observed links * 5 + crime-linked neighbours * 2 + neighbour links + address context. This is triage for review, not a conclusion about a person.
+  Review score combines observed links, crime-linked neighbours, neighbour links, and address context. It is only a triage score; living near crime does not imply guilt.
 \end{frame}
 
-\begin{frame}{Why Person-Crime Prediction Is Not the Main Demo}
+\begin{frame}{Rejected Strategy: Person-Crime Prediction}
   \small
   \begin{table}
     \centering
@@ -491,20 +454,20 @@
   \end{table}
 
   \vspace{0.2cm}
-  \textbf{Critical decision:} PARTY\_TO remains observed context. It is not used as the final automated write-back target because the class is too sparse and the interpretation is legally sensitive.
+  \textbf{Decision:} \tinycode{PARTY\_TO} stays in the graph as context, but we do not use it as the main write-back target. Write-back means creating a new relationship in Neo4j from the model output.
 \end{frame}
 
 \begin{frame}{Graph ML Design}
-  \textbf{Final GML target:} review-only social-family link prediction, with POLE context as features.
+  \textbf{Final GML target:} link prediction (LP), meaning we predict missing relationships between existing nodes. Here, the target is missing social-family links for review, using the wider POLE graph as context.
 
   \vspace{0.25cm}
   \begin{columns}[T]
     \column{0.48\textwidth}
-      \textbf{Why this is stronger}
+      \textbf{Why we chose this:}
       \begin{itemize}
-        \item 1,180 raw social-family links collapse into 586 unique undirected pair labels, not 55 \tinycode{PARTY\_TO} labels.
-        \item Safer interpretation: candidate association, not a crime claim.
-        \item Social graph has meaningful Louvain structure.
+        \item 1,180 raw social-family links collapse into 586 unique pair labels, not 55 \tinycode{PARTY\_TO} labels.
+        \item The output is safer: possible association, not a crime claim.
+        \item Social graph has meaningful community structure.
       \end{itemize}
 
     \column{0.48\textwidth}
@@ -519,26 +482,48 @@
 
 \begin{frame}{Supervised GDS Pipeline}
   \small
+  Graph Data Science (GDS) is Neo4j's graph algorithm and graph ML library. A pipeline is the ordered workflow: project graph, create features, train model, evaluate, then score candidates.
+
+  \vspace{0.12cm}
   \begin{table}
     \centering
-    \begin{tabular}{p{0.28\textwidth}p{0.58\textwidth}}
+    \begin{tabular}{p{0.28\textwidth}p{0.68\textwidth}}
       \toprule
       \textbf{Stage} & \textbf{Choice} \\
       \midrule
-      Projection & \tinycode{socialFamilyContextGraph} over Person/Crime/Location/Phone/Email context, with the supervised target handled separately for train/test splitting. \\
-      Target & Unified undirected social-family Person--Person pairs derived from raw social-family relationship evidence. \\
-      Embedding & FastRP 128 dimensions and Node2Vec 64 dimensions. \\
-      Pair feature & Hadamard product of source and target embeddings. \\
-      Models & Logistic Regression and Random Forest candidates. \\
-      Selection & GDS chooses the best candidate by validation AUCPR, then reports held-out test AUCPR. \\
-      Metric & AUCPR because the positive class is sparse. \\
-      Deployment & Write-back gate requires acceptable held-out AUCPR and probability spread. \\
+      Projection & A projection is the temporary in-memory graph GDS trains on. Ours includes Person/Crime/Location/Phone/Email context, with the supervised target handled separately for train/test splitting. \\
+      Target & Unified undirected social-family Person--Person pairs derived from raw social-family relationship evidence. Supervised means the model learns from examples of known links. \\
+      Embedding & FastRP and Node2Vec turn each node's graph neighbourhood into numeric vectors the model can learn from. \\
+      Pair feature & Hadamard product combines two node vectors element-by-element into one pair feature. \\
+      Model choice & Logistic Regression was tested as a simple baseline; the final demo pipeline keeps Random Forest (RF), a tree-ensemble model, because its scores had usable separation. \\
+      Evaluation & GDS reports train, validation, and held-out test AUCPR. Held-out test means data kept aside until final evaluation. \\
+      Metric & AUCPR means area under the precision-recall curve. Precision asks how many suggested links are right; recall asks how many true links are found. \\
+      Deployment & Deployment means using model scores to create review candidates. The gate requires acceptable held-out AUCPR and probability spread. \\
       \bottomrule
     \end{tabular}
   \end{table}
 \end{frame}
 
-\begin{frame}{Expanded ML Strategy}
+\begin{frame}[fragile]{Key ML Query}
+  \small
+  The model writes candidates only after the held-out score and score spread pass a simple gate.
+
+  \vspace{0.15cm}
+  \begin{verbatim}
+CALL gds.beta.pipeline.linkPrediction.predict.stream(
+  'socialFamilyContextGraph',
+  {modelName: 'social-family-lp-model', topN: 200}
+)
+YIELD node1, node2, probability
+WITH gds.util.asNode(node1) AS p1,
+     gds.util.asNode(node2) AS p2, probability
+WHERE NOT (p1)-[:KNOWS|KNOWS_SN|KNOWS_PHONE|KNOWS_LW|FAMILY_REL]-(p2)
+RETURN p1.name, p2.name, probability
+ORDER BY probability DESC;
+  \end{verbatim}
+\end{frame}
+
+\begin{frame}{ML Strategy Summary}
   \small
   \begin{table}
     \centering
@@ -546,20 +531,20 @@
       \toprule
       \textbf{Strategy} & \textbf{Result} & \textbf{Interpretation} \\
       \midrule
-      Supervised social LP & RF selected, test AUCPR 0.5578 & Useful for ranking rare candidate links; 25 review-only candidates written. \\
-      Explainable social LP & 4 review links & Strongest auditable GML output. \\
-      FastRP + kNN & high-similarity candidate pairs & Unsupervised review queue, no labels required. \\
-      Crime-type classification & F1 0.1441, accuracy 0.3096 & Weak supervised result; graph context alone does not reliably recover crime type. \\
       Hotspot analytics & 28,762 location links & Strongest operational insight. \\
+      Community analytics & Modularity 0.6710 & Strong graph-structure insight. \\
+      Supervised social LP & Test AUCPR 0.5578 & Useful for ranking rare candidate links. \\
+      Explainable social LP & 4 review links & Best for showing exactly why a link was suggested. \\
+      Crime-type classification & F1 0.1441 & F1 combines precision and recall into one score; this low value means the classifier is not useful enough to deploy. \\
       \bottomrule
     \end{tabular}
   \end{table}
 
   \vspace{0.1cm}
-  This is the key upgrade: multiple strategies are tested, and weak models become evidence for limits rather than hidden failures.
+  The point is not that every model wins. The point is that the graph tells us which tasks are credible and which ones are not.
 \end{frame}
 
-\begin{frame}{Visual Snapshot: Model Comparison}
+\begin{frame}{Model Comparison}
   \begin{columns}[T]
     \column{0.56\textwidth}
       \centering
@@ -570,7 +555,7 @@
       \includegraphics[width=\textwidth,height=0.72\textheight,keepaspectratio]{08_writeback_policy.png}
   \end{columns}
   \small
-Note: this is a diagnostics dashboard, not a single leaderboard. AUCPR, F1, and accuracy answer different evaluation questions.
+  This is a diagnostics chart, not a single leaderboard. AUCPR, F1, and accuracy answer different questions: ranking rare links, balancing class performance, and counting correct labels.
 \end{frame}
 
 \begin{frame}{Main Metrics}
@@ -581,11 +566,11 @@ Note: this is a diagnostics dashboard, not a single leaderboard. AUCPR, F1, and 
       \toprule
       \textbf{Metric} & \textbf{Plain meaning} & \textbf{How we use it} \\
       \midrule
-      AUCPR & Ranking quality for rare positive links & Main score for social-family link prediction. \\
-      Weighted F1 & Balance of precision and recall across classes & Used for crime-type classification; low score means not deployed. \\
-      Louvain modularity & Strength of community separation & 0.6710 supports community-level analysis. \\
-      k-core & How deeply a person sits inside a connected group & Used for social-structure diagnostics, not accusation. \\
-      Probability spread & Whether candidate scores are meaningfully separated & Used as a deployment gate before write-back. \\
+      AUCPR & Can the model rank rare true links above non-links? & Main score for social-family link prediction. \\
+      Weighted F1 & Does the classifier work across many classes? & Weighted means bigger crime classes count more in the average. Low score means not deployed. \\
+      Louvain modularity & Are communities actually separated? & 0.6710 supports community-level analysis. \\
+      k-core & Who sits deep inside a connected group? & Social-structure diagnostic, not accusation. \\
+      Probability spread & Are predicted scores separated or flat? & Gate before write-back. \\
       \bottomrule
     \end{tabular}
   \end{table}
@@ -602,36 +587,34 @@ Note: this is a diagnostics dashboard, not a single leaderboard. AUCPR, F1, and 
         \midrule
         People & 369 \\
         Unique social-family target pairs & 586 \\
-Candidate directed person pairs & 135,792 \\
-Positive share over directed pairs & 0.4315\% \\
+        Candidate directed person pairs & 135,792 \\
+        Positive share over directed pairs & 0.4315\% \\
         \bottomrule
       \end{tabular}
-      \vspace{0.1cm}
-\scriptsize
-The supervised target is deduplicated as person-pair evidence; candidate scoring is reported over directed source-target pairs from the GDS pipeline.
+
+      \vspace{0.25cm}
+      The supervised target is deduplicated as person-pair evidence; GDS reports candidate scoring over directed source-target pairs.
 
     \column{0.50\textwidth}
-      \textbf{GDS model-comparison result}\\[4pt]
+      \textbf{Final GDS result}\\[4pt]
       \small
       \begin{tabular}{lr}
         \toprule
         \textbf{Metric} & \textbf{Value} \\
         \midrule
         Selected model & Random Forest \\
-        Train AUCPR & 0.8034 \\
+        Train AUCPR & 0.9640 \\
         Validation AUCPR & 0.6271 \\
         Test AUCPR & 0.5578 \\
         \bottomrule
       \end{tabular}
 
       \vspace{0.25cm}
-      Reading: AUCPR measures how well the model ranks rare true links above non-links. A test AUCPR of 0.5578 is useful for review-priority ranking, but not strong enough for automatic decisions.
+      AUCPR tells us whether true rare links are ranked above non-links. A test AUCPR of 0.5578 is useful for review ranking, but not for automatic decisions.
   \end{columns}
 \end{frame}
 
-\begin{frame}{Why AUCPR and Calibration Matter}
-  \small
-  The course asks for graph machine learning results, but the useful result is not just the model score. The deployment decision matters too.
+\begin{frame}{Deployment Decisions}
 
   \vspace{0.2cm}
   \begin{table}
@@ -643,7 +626,7 @@ The supervised target is deduplicated as person-pair evidence; candidate scoring
       Is the target imbalanced? & Yes. Social-family positives are only 0.4315\% of directed person pairs. \\
       Is accuracy meaningful? & No. A no-link baseline would look accurate but would learn nothing useful. \\
       Is AUCPR more appropriate? & Yes. It focuses on rare positive links and ranking quality. \\
-      Is the trained model deployable? & Only as review support. Random Forest was selected by validation AUCPR and held-out test AUCPR is 0.5578. \\
+      Is the trained model deployable? & Only as review support. Random Forest reached held-out test AUCPR 0.5578. \\
       What is the responsible result? & Write review-only candidates, keep explanations, and avoid crime accusations. \\
       \bottomrule
     \end{tabular}
@@ -652,6 +635,9 @@ The supervised target is deduplicated as person-pair evidence; candidate scoring
 
 \begin{frame}{Calibration Result}
   \small
+  Calibration here means checking whether model probabilities are usable as review-ranking scores. If all probabilities are almost the same, we should not write anything back.
+
+  \vspace{0.12cm}
   \begin{table}
     \centering
     \begin{tabular}{lr}
@@ -660,7 +646,7 @@ The supervised target is deduplicated as person-pair evidence; candidate scoring
       \midrule
       Selected supervised model & Random Forest \\
       Held-out test AUCPR & 0.5578 \\
-      Candidate social links scored & 130 \\
+      Unseen candidate links scored & 130 \\
       Lowest probability & 0.70 \\
       Highest probability & 0.885 \\
       Average probability & 0.7449 \\
@@ -671,11 +657,14 @@ The supervised target is deduplicated as person-pair evidence; candidate scoring
   \end{table}
 
   \vspace{0.2cm}
-  Reading: probabilities are treated as ranking scores, not truth claims. The gate writes only the top review-only social candidates when the model has acceptable held-out AUCPR and a non-flat probability spread.
+  Probabilities are ranking scores, not truth claims. The gate writes only top review-only candidates when AUCPR is acceptable and the scores are not flat.
 \end{frame}
 
 \begin{frame}{Unsupervised Similarity Result}
   \small
+  Unsupervised means no target labels are used. Instead of learning from known links, the algorithm looks for people with similar graph neighbourhoods.
+
+  \vspace{0.12cm}
   \begin{table}
     \centering
     \begin{tabular}{llr}
@@ -694,11 +683,14 @@ The supervised target is deduplicated as person-pair evidence; candidate scoring
   \end{table}
 
   \vspace{0.1cm}
-  Reading: FastRP turns each person’s graph neighbourhood into a vector, and kNN finds people with similar graph context. These are similarity candidates, not predicted crimes.
+  FastRP turns each person’s graph neighbourhood into a vector. kNN means k-nearest neighbours: it finds people whose vectors look most similar. These are similarity candidates, not predicted crimes.
 \end{frame}
 
 \begin{frame}{Secondary Supervised Task: Crime Type Classification}
   \small
+  Node classification predicts a label for a node. Here, each Crime node is classified into a broad crime type using graph context.
+
+  \vspace{0.12cm}
   \begin{table}
     \centering
     \begin{tabular}{lr}
@@ -716,32 +708,12 @@ The supervised target is deduplicated as person-pair evidence; candidate scoring
   \end{table}
 
   \vspace{0.1cm}
-  Reading: weighted F1 balances performance across crime classes. A score of 0.1441 is weak, so this task becomes evidence that graph context helps triage more than it predicts crime type.
+  Weighted F1 balances performance across crime classes. A score of 0.1441 is weak, so this task becomes evidence that graph context helps triage more than it predicts crime type.
 \end{frame}
 
-\begin{frame}{Deployment Sanity Check}
+\begin{frame}{Why Accuracy Would Mislead}
   \small
-For newly predicted candidate links, true labels are not available at demo time. So we separate model evaluation from deployment: AUCPR evaluates held-out known links, while the write-back table shows what the deployed pipeline actually outputs.
-  \vspace{0.2cm}
-  \begin{table}
-    \centering
-    \begin{tabular}{lrr}
-  \toprule
-  \textbf{Deployment decision} & \textbf{Count} & \textbf{Interpretation} \\
-  \midrule
-  Written as review-only social candidate & 25 & Needs human validation \\
-  Held for no write-back & 105 & Not selected by the conservative top-25 write-back gate \\
-  \bottomrule
-\end{tabular}
-  \end{table}
-
-  \vspace{0.2cm}
-  \textbf{Operational metric:} overclaiming risk is controlled by writing review-only social candidates, not crime claims. Model quality is reported with AUCPR; deployment quality is reported with probability spread and write-back count.
-\end{frame}
-
-\begin{frame}{Baseline Confusion Matrix for Class Imbalance}
-  \small
-  For the social-family target evaluated over directed candidate pairs, naive baselines are misleading:
+  For the social-family target, naive baselines are misleading:
 
   \vspace{0.2cm}
   \begin{table}
@@ -757,11 +729,14 @@ For newly predicted candidate links, true labels are not available at demo time.
   \end{table}
 
   \vspace{0.2cm}
-  The no-link baseline has 99.5685\% accuracy but zero recall, so it misses every true social-family pair. That is why AUCPR and review-gated write-back are more honest than accuracy.
+  The no-link baseline has 99.5685\% accuracy but zero recall, so it misses every true social-family pair. That is why we use AUCPR and a review gate.
 \end{frame}
 
-\begin{frame}{Explainable GML Baseline: Common Neighbours}
+\begin{frame}{Explainable GML: Common Neighbours}
   \small
+  Common Neighbours is the simplest explainable link-prediction idea: if two people share several contacts, they may be worth reviewing as a possible missing association.
+
+  \vspace{0.12cm}
   \begin{table}
     \centering
     \begin{tabular}{lll}
@@ -777,11 +752,14 @@ For newly predicted candidate links, true labels are not available at demo time.
   \end{table}
 
   \vspace{0.2cm}
-  These are easy to explain live: two people are candidates only when they share multiple specific neighbours and have no existing social edge.
+  This is easy to explain in a demo: two people are candidates only when they share multiple specific neighbours and have no existing social edge.
 \end{frame}
 
-\begin{frame}{Explainable GML Baseline: Adamic Adar}
+\begin{frame}{Explainable GML: Adamic Adar}
   \small
+  Adamic Adar is like Common Neighbours, but it gives more credit to rare shared contacts than to very common ones.
+
+  \vspace{0.12cm}
   \begin{table}
     \centering
     \begin{tabular}{llrl}
@@ -798,10 +776,10 @@ For newly predicted candidate links, true labels are not available at demo time.
   \end{table}
 
   \vspace{0.2cm}
-  Reading: Adamic Adar gives more weight to rare shared neighbours, so the explanation is stronger when two people share specific, less-common contacts. Final write-back: 4 \tinycode{PREDICTED\_SOCIAL\_EXPLAINABLE} links, all review-only.
+  Adamic Adar gives more weight to rare shared neighbours. Final write-back: 4 \tinycode{PREDICTED\_SOCIAL\_EXPLAINABLE} links, all review-only.
 \end{frame}
 
-\begin{frame}{Final GML Decision Table}
+\begin{frame}{Final GML Decisions}
   \small
   \begin{table}
     \centering
@@ -810,8 +788,8 @@ For newly predicted candidate links, true labels are not available at demo time.
       \textbf{Approach} & \textbf{Result} & \textbf{Decision} \\
       \midrule
       Person-Crime prediction & 55 labels, 0.0005\% positives & Keep as context only. Too sparse and sensitive. \\
-      Supervised social LP & Random Forest selected; test AUCPR 0.5578 & Used as ranking support; 25 review-only candidates written. \\
-      FastRP + kNN & Similarity candidates up to 1.0000 & Unsupervised review queue. \\
+      Supervised social LP & Test AUCPR 0.5578 & Use as ranking support; 25 review-only candidates written. \\
+      FastRP + kNN & Similarity candidates & Unsupervised review queue. \\
       Crime-class classifier & Test weighted F1 0.1441 & Negative supervised result, not deployed. \\
       Common Neighbours / Adamic Adar & 4 high-specificity links & Strongest explainable GML output, written as review-only. \\
       Hotspot analytics & 28,762 complete crime-location links & Main investigative insight. \\
@@ -844,27 +822,6 @@ For newly predicted candidate links, true labels are not available at demo time.
   Final position: GDS is strongest here as an investigative prioritization layer, not as an automated decision engine.
 \end{frame}
 
-\begin{frame}{Live Demo Script}
-  \begin{enumerate}
-    \item Show database model and counts: \tinycode{CALL db.schema.visualization()} and graph stats schema queries.
-    \item Run link viability audit to prove which relationships are strong.
-    \item Run hotspot query: top repeat locations and dominant crime type.
-    \item Run Louvain community query and community crime-context concentration.
-    \item Run supervised social-family pipeline metrics and calibration query.
-    \item Show four review-only \tinycode{PREDICTED\_SOCIAL\_EXPLAINABLE} links and their shared-neighbour explanations.
-    \item Close with the final conclusion query.
-  \end{enumerate}
-\end{frame}
-
-\begin{frame}{Submission Notes}
-  \begin{itemize}
-    \item Final demo script is reproducible from \tinycode{graph-stats/queries.cypher} and \tinycode{graph-ml/pipeline.cypher}.
-    \item Result evidence is saved in \tinycode{graph-stats/results.cypher} and \tinycode{graph-ml/results.cypher}.
-    \item Local Neo4j credentials are stored only in an ignored local config file and are not part of submission.
-    \item Generative AI was used as an assistant for debugging, wording, and code/result review. Final modelling choices, interpretation, and demo claims remain the team's responsibility.
-    \item The final paper can reuse the same structure: problem, graph design, stats/analytics, GML methodology, results, limitations, and conclusion.
-  \end{itemize}
-\end{frame}
 
 \begin{frame}{Limitations and Ethics}
   \begin{itemize}
@@ -926,4 +883,3 @@ For newly predicted candidate links, true labels are not available at demo time.
 \end{frame}
 
 \end{document}
-
