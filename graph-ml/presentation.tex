@@ -86,7 +86,7 @@
   \vspace{0.3cm}
   \begin{columns}[T]
     \column{0.48\textwidth}
-      \textbf{Where we started}
+      \textbf{Initial modelling idea}
       \begin{itemize}
         \item Predict \tinycode{Person -> Crime}.
         \item Treat \tinycode{PARTY\_TO} as the main machine-learning (ML) target.
@@ -94,7 +94,7 @@
       \end{itemize}
 
     \column{0.48\textwidth}
-      \textbf{Where the evidence led}
+      \textbf{Final modelling direction}
       \begin{itemize}
         \item Find hotspots and repeat place patterns.
         \item Detect social communities and review-priority people.
@@ -118,7 +118,7 @@
       \end{center}
 
     \column{0.44\textwidth}
-      \textbf{How we read the model}
+      \textbf{Graph interpretation}
       \begin{itemize}
         \item POLE links people, places, objects, and events in one graph.
         \item The strongest evidence surface is place-based: every crime has a location.
@@ -194,7 +194,7 @@
 
 \begin{frame}[fragile]{Key Stats Query}
   \small
-  This query is the turning point of the project: it checks whether person-crime prediction has enough labels to be fair or useful.
+  Purpose: check whether person-crime prediction has enough labelled evidence to be fair or useful.
 
   \vspace{0.2cm}
   \begin{verbatim}
@@ -207,7 +207,7 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
   \end{verbatim}
 
   \vspace{0.1cm}
-  Result: only 55 observed \tinycode{PARTY\_TO} links out of 10,613,178 possible pairs, or 0.0005\%.
+  Output: only 55 observed \tinycode{PARTY\_TO} links out of 10,613,178 possible pairs, or 0.0005\%.
 \end{frame}
 
 \begin{frame}{Hotspot Analytics}
@@ -454,11 +454,11 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
   \end{table}
 
   \vspace{0.2cm}
-  \textbf{Decision:} \tinycode{PARTY\_TO} stays in the graph as context, but we do not use it as the main write-back target. Write-back means creating a new relationship in Neo4j from the model output.
+  \textbf{Final use:} \tinycode{PARTY\_TO} stays in the graph as context, but not as the main write-back target. Write-back means creating a new relationship in Neo4j from model output.
 \end{frame}
 
 \begin{frame}{Graph ML Design}
-  \textbf{Final GML target:} link prediction (LP), meaning we predict missing relationships between existing nodes. Here, the target is missing social-family links for review, using the wider POLE graph as context.
+  \textbf{Final GML target:} link prediction (LP), meaning prediction of missing relationships between existing nodes. In this project, the target is missing social-family links for review, using the wider POLE graph as context.
 
   \vspace{0.25cm}
   \begin{columns}[T]
@@ -495,7 +495,7 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
       Target & Unified undirected social-family Person--Person pairs derived from raw social-family relationship evidence. Supervised means the model learns from examples of known links. \\
       Embedding & FastRP and Node2Vec turn each node's graph neighbourhood into numeric vectors the model can learn from. \\
       Pair feature & Hadamard product combines two node vectors element-by-element into one pair feature. \\
-      Model choice & Logistic Regression was tested as a simple baseline; the final demo pipeline keeps Random Forest (RF), a tree-ensemble model, because its scores had usable separation. \\
+      Model choice & Logistic Regression was tested as a simple baseline; the final pipeline keeps Random Forest (RF), a tree-ensemble model, because its scores had usable separation. \\
       Evaluation & GDS reports train, validation, and held-out test AUCPR. Held-out test means data kept aside until final evaluation. \\
       Metric & AUCPR means area under the precision-recall curve. Precision asks how many suggested links are right; recall asks how many true links are found. \\
       Deployment & Deployment means using model scores to create review candidates. The gate requires acceptable held-out AUCPR and probability spread. \\
@@ -506,7 +506,7 @@ RETURN persons, crimes, count(r) AS observedPartyTo,
 
 \begin{frame}[fragile]{Key ML Query}
   \small
-  The model writes candidates only after the held-out score and score spread pass a simple gate.
+  Candidate relationships are written only after the held-out score and score spread pass a simple gate.
 
   \vspace{0.15cm}
   \begin{verbatim}
@@ -541,7 +541,7 @@ ORDER BY probability DESC;
   \end{table}
 
   \vspace{0.1cm}
-  The point is not that every model wins. The point is that the graph tells us which tasks are credible and which ones are not.
+  Not every model is useful. The graph helps identify which tasks are credible and which should remain descriptive context.
 \end{frame}
 
 \begin{frame}{Model Comparison}
@@ -555,7 +555,7 @@ ORDER BY probability DESC;
       \includegraphics[width=\textwidth,height=0.72\textheight,keepaspectratio]{08_writeback_policy.png}
   \end{columns}
   \small
-  This is a diagnostics chart, not a single leaderboard. AUCPR, F1, and accuracy answer different questions: ranking rare links, balancing class performance, and counting correct labels.
+  Diagnostic comparison: AUCPR, F1, and accuracy answer different questions: ranking rare links, balancing class performance, and counting correct labels.
 \end{frame}
 
 \begin{frame}{Main Metrics}
@@ -752,7 +752,7 @@ ORDER BY probability DESC;
   \end{table}
 
   \vspace{0.2cm}
-  This is easy to explain in a demo: two people are candidates only when they share multiple specific neighbours and have no existing social edge.
+  Candidate pairs require multiple specific shared neighbours and no existing social edge.
 \end{frame}
 
 \begin{frame}{Explainable GML: Adamic Adar}
@@ -819,7 +819,7 @@ ORDER BY probability DESC;
   \end{columns}
 
   \vspace{0.3cm}
-  Final position: GDS is strongest here as an investigative prioritization layer, not as an automated decision engine.
+  Overall comparison: GDS is strongest here as an investigative prioritization layer, not as an automated decision engine.
 \end{frame}
 
 
@@ -868,11 +868,11 @@ ORDER BY probability DESC;
 
 \begin{frame}{Final Takeaway}
   \begin{block}{Project conclusion}
-    The strongest final demo is POLE investigative analytics: hotspot locations, community concentration, review-priority people, and explainable social-link candidates. Direct Person-Crime prediction was tested, but the evidence base was too sparse for automated write-back.
+    The strongest final outcome is POLE investigative analytics: hotspot locations, community concentration, review-priority people, and explainable social-link candidates. Direct Person-Crime prediction was tested, but the evidence base was too sparse for automated write-back.
   \end{block}
 
   \vspace{0.25cm}
-  \textbf{One-line demo message:} We did not just build a model; we built a graph workflow that selects safe targets, explains its outputs, and knows when not to trust the model.
+  \textbf{Final claim:} The project builds a graph workflow that selects credible targets, explains its outputs, and avoids trusting weak models.
 \end{frame}
 
 \begin{frame}
