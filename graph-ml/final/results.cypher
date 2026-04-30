@@ -1,10 +1,4 @@
-﻿// Neo4j query + result report
-
-
-// ==================================================
-// QUERY 1
-// ==================================================
-// POLE Crime Investigation - Graph Machine Learning
+﻿// Neo4j queries + result report
 // Group 4: Amn Naqvi and Rayyan Shah
 
 // SECTION 0: SETUP
