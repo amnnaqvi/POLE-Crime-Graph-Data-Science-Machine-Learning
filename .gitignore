@@ -17,11 +17,6 @@ graph-ml/presentation.pdf
 *.vrb
 *.synctex.gz
 
-# Exploratory research sweep artifacts
-graph-ml/EXPERIMENTS.md
-graph-ml/experiment-sweep.cypher
-graph-ml/experiment-results.cypher
-
 # OS/editor noise
 .DS_Store
 Thumbs.db

@@ -1,5 +1,8 @@
 ﻿// POLE Crime Investigation - Graph Machine Learning
-// Group 4: Amn Naqvi and Rayyan Shah
+// Rayyan Shah (rs08770) and Amn Naqvi (sn08776)
+// This is the final ML pipeline used for the demo and submission.
+// It keeps person-crime links as context, trains the main person-person link prediction model,
+// writes only review-only candidate links, and includes the secondary experiments used for comparison.
 
 // SECTION 0: SETUP
 
